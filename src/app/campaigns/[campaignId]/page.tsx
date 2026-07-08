@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { deleteCampaignAction, detectSignalsAction, runDiscoveryAction } from "../actions";
+import { confirmSignalAsLeadAction, deleteCampaignAction, detectSignalsAction, rejectChannelNewSignalsAction, runDiscoveryAction } from "../actions";
 import { DetectSignalsButton } from "./detect-signals-button";
+import { ManualEvidenceForm } from "./manual-evidence-form";
 import { RunDiscoveryButton } from "./run-discovery-button";
 import { prisma } from "@/lib/prisma";
 
@@ -25,8 +26,8 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
       },
       sponsorSignals: {
         orderBy: { createdAt: "desc" },
-        take: 3,
-        include: { channel: true },
+        take: 12,
+        include: { channel: true, streamSnapshot: true, vod: true },
       },
       sponsorLeads: {
         orderBy: { confirmedAt: "desc" },
@@ -44,6 +45,7 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
   const deleteCampaign = deleteCampaignAction.bind(null, campaign.id);
   const runDiscovery = runDiscoveryAction.bind(null, campaign.id);
   const detectSignals = detectSignalsAction.bind(null, campaign.id);
+  const latestSignalGroups = groupSignalsByChannel(campaign.sponsorSignals).slice(0, 3);
   const streamSnapshots = await prisma.streamSnapshot.findMany({
     where: { discoveryRun: { campaignId: campaign.id } },
     orderBy: { capturedAt: "desc" },
@@ -163,29 +165,52 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
             View all
           </Link>
         </div>
-        {campaign.sponsorSignals.length === 0 ? (
+        {latestSignalGroups.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">No sponsor signals detected yet.</p>
         ) : (
           <div className="mt-4 grid gap-3">
-            {campaign.sponsorSignals.map((signal) => (
-              <div key={signal.id} className="rounded-lg border p-4 text-sm">
+            {latestSignalGroups.map((group) => {
+              const bestSignal = group.signals[0];
+
+              return (
+              <div key={group.channelId} className="rounded-lg border p-4 text-sm">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="font-medium">{signal.sponsorName ?? "Unknown sponsor"}</p>
-                    <p className="mt-1 text-muted-foreground">{signal.sourceTitle}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Proof: {signal.matchedText}</p>
-                    {signal.matchedSponsorTerms.length > 0 ? <p className="mt-1 text-xs text-muted-foreground">Sponsor terms: {signal.matchedSponsorTerms.join(", ")}</p> : null}
-                    {signal.matchedContextTerms.length > 0 ? <p className="mt-1 text-xs text-muted-foreground">Context: {signal.matchedContextTerms.join(", ")}</p> : null}
+                    <p className="font-medium">{group.peerChannelName}</p>
+                    <p className="mt-1 text-muted-foreground">{group.signals.length} evidence item{group.signals.length === 1 ? "" : "s"} · highest viewers {group.highestSeenViewers ?? "unknown"}</p>
+                    <div className="mt-1 flex flex-wrap gap-3 text-xs">
+                      {group.login ? <a href={`https://www.twitch.tv/${group.login}`} target="_blank" rel="noreferrer" className="font-medium text-primary">Open Twitch</a> : null}
+                      {bestSignal.manualSourceUrl ? <a href={bestSignal.manualSourceUrl} target="_blank" rel="noreferrer" className="font-medium text-primary">Open source</a> : null}
+                      {!bestSignal.manualSourceUrl && bestSignal.vod?.twitchVodId ? <a href={`https://www.twitch.tv/videos/${bestSignal.vod.twitchVodId}`} target="_blank" rel="noreferrer" className="font-medium text-primary">Open source</a> : null}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">Best proof: {bestSignal.matchedText}</p>
+                    {bestSignal.matchedSponsorTerms.length > 0 ? <p className="mt-1 text-xs text-muted-foreground">Sponsor terms: {[...new Set(bestSignal.matchedSponsorTerms)].join(", ")}</p> : null}
                   </div>
                   <p className="text-muted-foreground">
-                    {signal.confidence} · {signal.score} · {signal.status}
+                    {group.highestConfidence} · {group.highestScore}
                   </p>
                 </div>
+                {bestSignal.status !== "CONFIRMED" ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <form action={confirmSignalAsLeadAction.bind(null, campaign.id, bestSignal.id)} className="flex flex-wrap gap-2">
+                      <input name="sponsorName" defaultValue={bestSignal.sponsorName ?? ""} placeholder="Sponsor name" required className="rounded-md border bg-background px-3 py-2 text-sm" />
+                      <button type="submit" className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Confirm Lead</button>
+                    </form>
+                    {group.hasNewSignals ? (
+                      <form action={rejectChannelNewSignalsAction.bind(null, campaign.id, group.channelId)}>
+                        <button type="submit" className="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">Reject NEW for channel</button>
+                      </form>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </section>
+
+      <ManualEvidenceForm campaignId={campaign.id} />
 
       <section className="rounded-xl border bg-card p-5 shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -206,7 +231,11 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-medium">{lead.sponsorName}</p>
-                    <p className="mt-1 text-muted-foreground">{lead.channel.displayName} · {lead.sponsorSignal.sourceTitle}</p>
+                    <p className="mt-1 text-muted-foreground">{lead.sponsorSignal.manualPeerChannel ?? lead.channel.displayName} · {lead.sponsorSignal.sourceTitle}</p>
+                    <div className="mt-1 flex flex-wrap gap-3 text-xs">
+                      {lead.channel.login && !lead.channel.login.startsWith("manual-") ? <a href={`https://www.twitch.tv/${lead.channel.login}`} target="_blank" rel="noreferrer" className="font-medium text-primary">Open Twitch</a> : null}
+                      {lead.sourceUrl ? <a href={lead.sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-primary">Open source</a> : null}
+                    </div>
                     {lead.notes ? <p className="mt-1 text-xs text-muted-foreground">Notes: {lead.notes}</p> : null}
                   </div>
                   <p className="text-muted-foreground">{lead.status}</p>
@@ -300,4 +329,60 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
       </div>
     </div>
   );
+}
+
+type CampaignSignal = {
+  id: string;
+  channelId: string;
+  sourceType: string;
+  matchedText: string;
+  matchedSponsorTerms: string[];
+  sponsorName: string | null;
+  score: number;
+  confidence: "LOW" | "MEDIUM" | "HIGH";
+  status: string;
+  createdAt: Date;
+  manualSourceUrl: string | null;
+  manualPeerChannel: string | null;
+  manualSeenViewers: number | null;
+  channel: { login: string; displayName: string };
+  streamSnapshot: { viewerCount: number } | null;
+  vod: { twitchVodId: string } | null;
+};
+
+function groupSignalsByChannel(signals: CampaignSignal[]) {
+  const groups = new Map<string, CampaignSignal[]>();
+
+  for (const signal of signals) {
+    groups.set(signal.channelId, [...(groups.get(signal.channelId) ?? []), signal]);
+  }
+
+  return [...groups.entries()]
+    .map(([channelId, channelSignals]) => {
+      const sortedSignals = channelSignals.sort(compareSignals);
+      const bestSignal = sortedSignals[0];
+
+      return {
+        channelId,
+        signals: sortedSignals,
+        peerChannelName: bestSignal.manualPeerChannel ?? bestSignal.channel.displayName,
+        login: bestSignal.channel.login && !bestSignal.channel.login.startsWith("manual-") ? bestSignal.channel.login : null,
+        highestSeenViewers: Math.max(...sortedSignals.map((signal) => signal.streamSnapshot?.viewerCount ?? signal.manualSeenViewers ?? 0)) || null,
+        highestConfidence: sortedSignals[0].confidence,
+        highestScore: sortedSignals[0].score,
+        hasNewSignals: sortedSignals.some((signal) => signal.status === "NEW"),
+      };
+    })
+    .sort((a, b) => compareSignals(a.signals[0], b.signals[0]));
+}
+
+function compareSignals(a: CampaignSignal, b: CampaignSignal) {
+  const statusScore = Number(b.status === "NEW") - Number(a.status === "NEW");
+  if (statusScore !== 0) return statusScore;
+  const confidenceRank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+  const confidenceScore = confidenceRank[b.confidence] - confidenceRank[a.confidence];
+  if (confidenceScore !== 0) return confidenceScore;
+  const viewerScore = (b.streamSnapshot?.viewerCount ?? b.manualSeenViewers ?? 0) - (a.streamSnapshot?.viewerCount ?? a.manualSeenViewers ?? 0);
+  if (viewerScore !== 0) return viewerScore;
+  return b.createdAt.getTime() - a.createdAt.getTime();
 }

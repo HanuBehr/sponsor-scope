@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
-import { SponsorLeadStatus, SponsorSignalStatus } from "@prisma/client";
+import { SponsorConfidence, SponsorLeadStatus, SponsorSignalSourceType, SponsorSignalStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatValidationError, parseCampaignFormData } from "@/lib/campaigns/validation";
 import { exportCampaignLeadsToSheets } from "@/lib/sheets";
+import { scoreSponsorSignal } from "@/lib/scoring";
 import { detectCampaignSponsorSignals } from "@/lib/signals/detection";
 import { runCampaignDiscovery } from "@/lib/twitch/discovery";
 
@@ -123,8 +124,36 @@ export async function rejectSignalAction(campaignId: string, signalId: string) {
   revalidatePath(`/campaigns/${campaignId}/signals`);
 }
 
+export async function rejectChannelNewSignalsAction(campaignId: string, channelId: string) {
+  await prisma.sponsorSignal.updateMany({
+    where: {
+      campaignId,
+      channelId,
+      status: SponsorSignalStatus.NEW,
+    },
+    data: { status: SponsorSignalStatus.REJECTED },
+  });
+
+  revalidatePath(`/campaigns/${campaignId}`);
+  revalidatePath(`/campaigns/${campaignId}/signals`);
+}
+
+export async function confirmSelectedSignalAsLeadAction(campaignId: string, formData: FormData) {
+  const signalId = String(formData.get("signalId") ?? "").trim();
+
+  if (!signalId) {
+    redirect(`/campaigns/${campaignId}/signals?error=${encodeURIComponent("Select evidence to confirm")}`);
+  }
+
+  return confirmSignalAsLeadAction(campaignId, signalId, formData);
+}
+
 export async function confirmSignalAsLeadAction(campaignId: string, signalId: string, formData: FormData) {
   const sponsorName = String(formData.get("sponsorName") ?? "").trim();
+  const sponsorCategory = getOptionalFormValue(formData, "sponsorCategory");
+  const sponsorshipType = getOptionalFormValue(formData, "sponsorshipType");
+  const sponsorContact = getOptionalFormValue(formData, "sponsorContact");
+  const outreachStatus = getOptionalFormValue(formData, "outreachStatus") ?? "Not Contacted";
   const notes = String(formData.get("notes") ?? "").trim();
 
   if (!sponsorName) {
@@ -143,7 +172,7 @@ export async function confirmSignalAsLeadAction(campaignId: string, signalId: st
     notFound();
   }
 
-  const sourceUrl = signal.vod?.twitchVodId ? `https://www.twitch.tv/videos/${signal.vod.twitchVodId}` : `https://www.twitch.tv/${signal.channel.login}`;
+  const sourceUrl = signal.manualSourceUrl ?? (signal.vod?.twitchVodId ? `https://www.twitch.tv/videos/${signal.vod.twitchVodId}` : twitchChannelUrl(signal.channel.login));
 
   await prisma.$transaction([
     prisma.sponsorLead.upsert({
@@ -151,6 +180,10 @@ export async function confirmSignalAsLeadAction(campaignId: string, signalId: st
       update: {
         sponsorName,
         sourceUrl,
+        sponsorCategory,
+        sponsorshipType,
+        sponsorContact,
+        outreachStatus,
         notes: notes || null,
         status: SponsorLeadStatus.CONFIRMED,
       },
@@ -160,6 +193,10 @@ export async function confirmSignalAsLeadAction(campaignId: string, signalId: st
         sponsorSignalId: signal.id,
         sponsorName,
         sourceUrl,
+        sponsorCategory,
+        sponsorshipType,
+        sponsorContact,
+        outreachStatus,
         notes: notes || null,
         status: SponsorLeadStatus.CONFIRMED,
       },
@@ -176,7 +213,85 @@ export async function confirmSignalAsLeadAction(campaignId: string, signalId: st
   revalidatePath(`/campaigns/${campaignId}`);
   revalidatePath(`/campaigns/${campaignId}/signals`);
   revalidatePath(`/campaigns/${campaignId}/leads`);
-  redirect(`/campaigns/${campaignId}/leads`);
+}
+
+export async function addManualEvidenceAction(campaignId: string, formData: FormData) {
+  const peerChannelInput = String(formData.get("peerChannel") ?? "").trim();
+  const seenViewersValue = String(formData.get("seenViewers") ?? "").trim();
+  const gameCategory = getOptionalFormValue(formData, "gameCategory");
+  const sourceType = parseSignalSourceType(String(formData.get("sourceType") ?? "OTHER"));
+  const evidenceUrl = getOptionalFormValue(formData, "evidenceUrl");
+  const evidenceText = String(formData.get("evidenceText") ?? "").trim();
+  const sponsorName = getOptionalFormValue(formData, "sponsorName");
+  const sponsorCategory = getOptionalFormValue(formData, "sponsorCategory");
+  const sponsorshipType = getOptionalFormValue(formData, "sponsorshipType");
+  const sponsorContact = getOptionalFormValue(formData, "sponsorContact");
+  const createLead = formData.get("createLead") === "on";
+
+  if (!evidenceText) {
+    redirect(`/campaigns/${campaignId}/signals?error=${encodeURIComponent("Evidence text is required")}`);
+  }
+
+  const campaign = await prisma.campaign.findUnique({ where: { id: campaignId }, select: { sponsorKeywords: true } });
+
+  if (!campaign) {
+    notFound();
+  }
+
+  const parsedTwitchLogin = parseTwitchLogin(peerChannelInput || evidenceUrl);
+  const displayName = cleanPeerChannelName(peerChannelInput) || parsedTwitchLogin || "Manual peer channel";
+  const manualLogin = parsedTwitchLogin ?? `manual-${Date.now()}`;
+  const channel = await prisma.channel.upsert({
+    where: { login: manualLogin },
+    update: { displayName },
+    create: {
+      twitchId: parsedTwitchLogin ? `manual-twitch-${parsedTwitchLogin}` : `manual-${Date.now()}`,
+      login: manualLogin,
+      displayName,
+    },
+  });
+  const score = scoreSponsorSignal(evidenceText, campaign.sponsorKeywords);
+  const confidence = score.confidence ?? SponsorConfidence.LOW;
+  const signal = await prisma.sponsorSignal.create({
+    data: {
+      campaignId,
+      channelId: channel.id,
+      sourceType,
+      sourceTitle: evidenceText,
+      manualSourceUrl: evidenceUrl,
+      manualPeerChannel: peerChannelInput || displayName,
+      manualSeenViewers: seenViewersValue ? Number(seenViewersValue) : null,
+      manualGameCategory: gameCategory,
+      matchedText: buildManualMatchedText(evidenceText),
+      matchedKeywords: score.matchedKeywords,
+      matchedSponsorTerms: score.matchedSponsorTerms,
+      matchedContextTerms: score.matchedContextTerms,
+      sponsorName: sponsorName ?? score.sponsorName,
+      score: score.hasSignal ? score.score : 20,
+      confidence,
+      status: createLead && sponsorName ? SponsorSignalStatus.CONFIRMED : SponsorSignalStatus.NEW,
+    },
+  });
+
+  if (createLead && sponsorName) {
+    await prisma.sponsorLead.create({
+      data: {
+        campaignId,
+        channelId: channel.id,
+        sponsorSignalId: signal.id,
+        sponsorName,
+        sourceUrl: evidenceUrl,
+        sponsorCategory,
+        sponsorshipType,
+        sponsorContact,
+        status: SponsorLeadStatus.CONFIRMED,
+      },
+    });
+  }
+
+  revalidatePath(`/campaigns/${campaignId}`);
+  revalidatePath(`/campaigns/${campaignId}/signals`);
+  revalidatePath(`/campaigns/${campaignId}/leads`);
 }
 
 export async function updateLeadExportFieldsAction(campaignId: string, leadId: string, formData: FormData) {
@@ -224,4 +339,43 @@ export async function exportUnexportedLeadsAction(campaignId: string) {
 function getOptionalFormValue(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
   return value || null;
+}
+
+function parseSignalSourceType(value: string) {
+  if (Object.values(SponsorSignalSourceType).includes(value as SponsorSignalSourceType)) {
+    return value as SponsorSignalSourceType;
+  }
+
+  return SponsorSignalSourceType.OTHER;
+}
+
+function parseTwitchLogin(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  const urlMatch = trimmed.match(/twitch\.tv\/([a-z0-9_]+)/i);
+
+  if (urlMatch?.[1]) {
+    return urlMatch[1].toLowerCase();
+  }
+
+  if (/^[a-z0-9_]{3,25}$/i.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+
+  return null;
+}
+
+function cleanPeerChannelName(value: string) {
+  return value.replace(/^https?:\/\/(www\.)?twitch\.tv\//i, "").trim();
+}
+
+function twitchChannelUrl(login: string) {
+  return login && !login.startsWith("manual-") ? `https://www.twitch.tv/${login}` : null;
+}
+
+function buildManualMatchedText(evidenceText: string) {
+  return evidenceText.slice(0, 500);
 }

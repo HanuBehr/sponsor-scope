@@ -27,8 +27,17 @@ export default async function CampaignLeadsPage({ params, searchParams }: Campai
     orderBy: { confirmedAt: "desc" },
     include: {
       channel: true,
-      sponsorSignal: true,
+      sponsorSignal: { include: { streamSnapshot: true, vod: true } },
     },
+  });
+  const sortedLeads = leads.sort((a, b) => {
+    const exportScore = Number(!b.exportedAt) - Number(!a.exportedAt);
+    if (exportScore !== 0) return exportScore;
+    const confirmedScore = Number(b.status === SponsorLeadStatus.CONFIRMED) - Number(a.status === SponsorLeadStatus.CONFIRMED);
+    if (confirmedScore !== 0) return confirmedScore;
+    const completenessScore = Number(Boolean(b.sponsorName && b.sponsorContact)) - Number(Boolean(a.sponsorName && a.sponsorContact));
+    if (completenessScore !== 0) return completenessScore;
+    return (b.sponsorSignal.streamSnapshot?.viewerCount ?? b.sponsorSignal.manualSeenViewers ?? 0) - (a.sponsorSignal.streamSnapshot?.viewerCount ?? a.sponsorSignal.manualSeenViewers ?? 0);
   });
   const exportLogs = await prisma.exportLog.findMany({
     where: { campaignId: campaign.id },
@@ -69,14 +78,14 @@ export default async function CampaignLeadsPage({ params, searchParams }: Campai
 
       {unexportedLeadCount === 0 && leads.length > 0 ? <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">No unexported confirmed leads are currently available.</div> : null}
 
-      {leads.length === 0 ? (
+      {sortedLeads.length === 0 ? (
         <div className="rounded-xl border bg-card p-8 text-center shadow-sm">
           <h2 className="font-semibold">No outreach-ready leads yet</h2>
           <p className="mt-2 text-sm text-muted-foreground">Confirm useful sponsor evidence from peer channels to create leads for outreach.</p>
         </div>
       ) : (
         <div className="grid gap-3">
-          {leads.map((lead) => {
+          {sortedLeads.map((lead) => {
             const updateLead = updateLeadExportFieldsAction.bind(null, campaign.id, lead.id);
 
             return (
@@ -84,14 +93,22 @@ export default async function CampaignLeadsPage({ params, searchParams }: Campai
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="font-semibold">{lead.sponsorName}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">Peer Channel: {lead.channel.displayName}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Peer Channel: {lead.sponsorSignal.manualPeerChannel ?? lead.channel.displayName} {lead.channel.login && !lead.channel.login.startsWith("manual-") ? `(@${lead.channel.login})` : ""}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Seen viewers: {lead.sponsorSignal.streamSnapshot?.viewerCount ?? lead.sponsorSignal.manualSeenViewers ?? "unknown"}</p>
                   <p className="mt-1 text-sm text-muted-foreground">Evidence/Proof Source: {lead.sponsorSignal.sourceTitle}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">Export: {lead.exportedAt ? `Exported to ${lead.exportedTab ?? "Google Sheets"}` : "Not exported"}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">Export: {lead.exportedAt ? `Exported to ${lead.exportedTab ?? "Google Sheets"} at ${lead.exportedAt.toLocaleString()}` : "Not exported"}</p>
+                  <div className="mt-2 flex flex-wrap gap-3 text-sm">
+                  {lead.channel.login && !lead.channel.login.startsWith("manual-") ? (
+                    <a href={`https://www.twitch.tv/${lead.channel.login}`} className="font-medium text-primary" target="_blank" rel="noreferrer">
+                      Open Twitch
+                    </a>
+                  ) : null}
                   {lead.sourceUrl ? (
                     <a href={lead.sourceUrl} className="mt-2 inline-flex text-sm font-medium text-primary" target="_blank" rel="noreferrer">
                       Open source
                     </a>
                   ) : null}
+                  </div>
                 </div>
                 <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium">{lead.status}</span>
               </div>

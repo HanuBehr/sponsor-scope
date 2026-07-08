@@ -35,7 +35,7 @@ export function formatSponsorLeadExportRow(lead: LeadForExport, latestViewerCoun
 }
 
 export function getLeadExportTabName(lead: LeadForExport): SheetTabName {
-  const sourceContext = [lead.sponsorSignal.streamSnapshot?.gameName, ...lead.campaign.categories.map((category) => category.name)].filter(Boolean).join(" ").toLowerCase();
+  const sourceContext = [lead.sponsorSignal.streamSnapshot?.gameName, lead.sponsorSignal.manualGameCategory, ...lead.campaign.categories.map((category) => category.name)].filter(Boolean).join(" ").toLowerCase();
 
   if (sourceContext.includes("roblox")) {
     return "ROBLOX";

@@ -82,14 +82,12 @@ export async function detectCampaignSponsorSignals(campaignId: string): Promise<
       continue;
     }
 
-    const matchedText = buildMatchedText(score.matchedRules, score.matchedKeywords, candidate.sourceTitle);
+    const matchedText = buildMatchedText(candidate.sourceTitle);
     const existingSignal = await prisma.sponsorSignal.findFirst({
       where: {
         campaignId: candidate.campaignId,
         channelId: candidate.channelId,
-        sourceType: candidate.sourceType,
-        streamSnapshotId: candidate.streamSnapshotId ?? null,
-        vodId: candidate.vodId ?? null,
+        sourceTitle: candidate.sourceTitle,
         matchedText,
       },
       select: { id: true },
@@ -125,12 +123,6 @@ export async function detectCampaignSponsorSignals(campaignId: string): Promise<
   return { scanned: candidates.length, created, skippedDuplicates };
 }
 
-function buildMatchedText(matchedRules: string[], matchedKeywords: string[], sourceTitle: string) {
-  const proofTerms = [...matchedRules, ...matchedKeywords];
-
-  if (proofTerms.length > 0) {
-    return proofTerms.join(", ");
-  }
-
-  return sourceTitle;
+function buildMatchedText(sourceTitle: string) {
+  return sourceTitle.slice(0, 500);
 }

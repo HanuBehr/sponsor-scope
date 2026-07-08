@@ -11,6 +11,14 @@ enum SponsorSignalSourceType {
   STREAM_TITLE
   VOD_TITLE
   VOD_DESCRIPTION
+  TWITCH_PANEL
+  CHAT_COMMAND
+  YOUTUBE_DESCRIPTION
+  DISCORD_POST
+  TWITTER_X_POST
+  LINKTREE_BEACONS
+  STREAM_OVERLAY
+  OTHER
 }
 
 enum SponsorSignalStatus {
@@ -121,6 +129,10 @@ model SponsorSignal {
   vodId            String?
   sourceType       SponsorSignalSourceType
   sourceTitle      String
+  manualSourceUrl  String?
+  manualPeerChannel String?
+  manualSeenViewers Int?
+  manualGameCategory String?
   matchedText      String
   matchedKeywords  String[]                @default([])
   matchedSponsorTerms String[]             @default([])
