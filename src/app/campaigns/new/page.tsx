@@ -1,10 +1,19 @@
-export default function NewCampaignPage() {
+import { createCampaignAction } from "../actions";
+import { CampaignForm } from "../campaign-form";
+
+type NewCampaignPageProps = {
+  searchParams: Promise<{ error?: string }>;
+};
+
+export default async function NewCampaignPage({ searchParams }: NewCampaignPageProps) {
+  const { error } = await searchParams;
+
   return (
     <div className="max-w-2xl rounded-xl border bg-card p-6 shadow-sm">
       <h1 className="text-3xl font-semibold tracking-tight">New campaign</h1>
-      <p className="mt-2 text-muted-foreground">Campaign creation UI will be implemented in the Campaign CRUD pass.</p>
-      <div className="mt-6 grid gap-4">
-        <div className="rounded-md border bg-muted/40 p-4 text-sm text-muted-foreground">Name, categories, viewer range, languages, and sponsor keywords will live here.</div>
+      <p className="mt-2 text-muted-foreground">Create a campaign with manual category and keyword inputs.</p>
+      <div className="mt-6">
+        <CampaignForm action={createCampaignAction} error={error} submitLabel="Create campaign" />
       </div>
     </div>
   );

@@ -151,6 +151,9 @@ model DiscoveryRun {
   id              String             @id @default(cuid())
   campaignId      String
   status          DiscoveryRunStatus @default(PENDING)
+  streamsFound    Int                @default(0)
+  streamsMatched  Int                @default(0)
+  vodsFetched     Int                @default(0)
   startedAt       DateTime?
   completedAt     DateTime?
   errorMessage    String?
