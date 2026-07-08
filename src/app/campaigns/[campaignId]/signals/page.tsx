@@ -43,7 +43,8 @@ export default async function CampaignSignalsPage({ params, searchParams }: Camp
     <div className="grid gap-6">
       <div>
         <p className="text-sm text-muted-foreground">{campaign.name}</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Sponsor signals</h1>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Sponsor evidence</h1>
+        <p className="mt-2 text-muted-foreground">Signals are possible sponsor evidence found on peer channels. Confirm only brands that look useful for your outreach.</p>
       </div>
 
       {filters.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{filters.error}</div> : null}
@@ -68,7 +69,7 @@ export default async function CampaignSignalsPage({ params, searchParams }: Camp
         {signals.length === 0 ? (
           <div className="rounded-xl border bg-card p-8 text-center shadow-sm">
             <h2 className="font-semibold">No sponsor signals found</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Run discovery, then detect sponsor signals from stream and VOD titles.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Run peer discovery, then detect sponsor evidence from stream titles, VOD titles, and VOD descriptions.</p>
           </div>
         ) : (
           signals.map((signal) => {
@@ -82,9 +83,12 @@ export default async function CampaignSignalsPage({ params, searchParams }: Camp
                   <h2 className="font-semibold">{signal.sponsorName ?? "Unknown sponsor"}</h2>
                   <p className="mt-1 text-sm text-muted-foreground">{signal.sourceTitle}</p>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {signal.channel.displayName} · {signal.sourceType} · Matched: {signal.matchedText}
+                    Peer channel: {signal.channel.displayName} · Seen viewers: {signal.streamSnapshot?.viewerCount ?? "unknown"} · Game/category: {signal.streamSnapshot?.gameName ?? "unknown"} · Source: {signal.sourceType}
                   </p>
-                  {signal.matchedKeywords.length > 0 ? <p className="mt-1 text-xs text-muted-foreground">Keywords: {signal.matchedKeywords.join(", ")}</p> : null}
+                  <p className="mt-1 text-xs text-muted-foreground">Proof text: {signal.matchedText}</p>
+                  {signal.matchedSponsorTerms.length > 0 ? <p className="mt-1 text-xs text-muted-foreground">Sponsor-intent terms: {signal.matchedSponsorTerms.join(", ")}</p> : null}
+                  {signal.matchedKeywords.length > 0 ? <p className="mt-1 text-xs text-muted-foreground">Campaign evidence terms: {signal.matchedKeywords.join(", ")}</p> : null}
+                  {signal.matchedContextTerms.length > 0 ? <p className="mt-1 text-xs text-muted-foreground">Context terms: {signal.matchedContextTerms.join(", ")}</p> : null}
                 </div>
                 <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium">
                   {signal.confidence} · {signal.score} · {signal.status}

@@ -27,7 +27,7 @@ export default async function EditCampaignPage({ params, searchParams }: EditCam
   return (
     <div className="max-w-2xl rounded-xl border bg-card p-6 shadow-sm">
       <h1 className="text-3xl font-semibold tracking-tight">Edit campaign</h1>
-      <p className="mt-2 text-muted-foreground">Update campaign filters, keywords, and manual categories.</p>
+      <p className="mt-2 text-muted-foreground">Update peer-channel filters, sponsor evidence terms, and discovery categories.</p>
       <div className="mt-6">
         <CampaignForm action={updateCampaign} campaign={campaign} error={error} submitLabel="Save campaign" />
       </div>

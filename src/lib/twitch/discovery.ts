@@ -8,6 +8,8 @@ type DiscoveryResult = {
   streamsFound: number;
   streamsMatched: number;
   vodsFetched: number;
+  streamsFilteredByViewers: number;
+  streamsFilteredByLanguage: number;
   errorMessage: string | null;
 };
 
@@ -32,19 +34,35 @@ export async function runCampaignDiscovery(campaignId: string): Promise<Discover
 
   let streamsFound = 0;
   let streamsMatched = 0;
+  let streamsFilteredByViewers = 0;
+  let streamsFilteredByLanguage = 0;
   let vodsFetched = 0;
 
   try {
-    const allowedLanguages = new Set(campaign.languages.map((language) => language.toLowerCase()));
+    const allowedLanguages = new Set(campaign.languages.map((language) => normalizeLanguage(language)).filter(Boolean));
 
     for (const category of campaign.categories) {
       const streamResponse = await getStreamsByGameId(category.twitchId);
       streamsFound += streamResponse.data.length;
 
-      const matchedStreams = streamResponse.data.filter((stream) => {
-        const languageMatches = allowedLanguages.size === 0 || allowedLanguages.has(stream.language.toLowerCase());
-        return stream.viewer_count >= campaign.minViewers && stream.viewer_count <= campaign.maxViewers && languageMatches;
-      });
+      const matchedStreams = [];
+
+      for (const stream of streamResponse.data) {
+        const viewerMatches = stream.viewer_count >= campaign.minViewers && stream.viewer_count <= campaign.maxViewers;
+        const languageMatches = allowedLanguages.size === 0 || allowedLanguages.has(normalizeLanguage(stream.language));
+
+        if (!viewerMatches) {
+          streamsFilteredByViewers += 1;
+          continue;
+        }
+
+        if (!languageMatches) {
+          streamsFilteredByLanguage += 1;
+          continue;
+        }
+
+        matchedStreams.push(stream);
+      }
 
       streamsMatched += matchedStreams.length;
 
@@ -86,6 +104,7 @@ export async function runCampaignDiscovery(campaignId: string): Promise<Discover
             update: {
               channelId: channel.id,
               title: video.title,
+              description: video.description,
               publishedAt: new Date(video.published_at),
               duration: video.duration,
               viewCount: video.view_count,
@@ -94,6 +113,7 @@ export async function runCampaignDiscovery(campaignId: string): Promise<Discover
               channelId: channel.id,
               twitchVodId: video.id,
               title: video.title,
+              description: video.description,
               publishedAt: new Date(video.published_at),
               duration: video.duration,
               viewCount: video.view_count,
@@ -109,12 +129,14 @@ export async function runCampaignDiscovery(campaignId: string): Promise<Discover
         status: DiscoveryRunStatus.COMPLETED,
         streamsFound,
         streamsMatched,
+        streamsFilteredByViewers,
+        streamsFilteredByLanguage,
         vodsFetched,
         completedAt: new Date(),
       },
     });
 
-    return { runId: run.id, status: DiscoveryRunStatus.COMPLETED, streamsFound, streamsMatched, vodsFetched, errorMessage: null };
+    return { runId: run.id, status: DiscoveryRunStatus.COMPLETED, streamsFound, streamsMatched, streamsFilteredByViewers, streamsFilteredByLanguage, vodsFetched, errorMessage: null };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Discovery failed";
 
@@ -124,12 +146,18 @@ export async function runCampaignDiscovery(campaignId: string): Promise<Discover
         status: DiscoveryRunStatus.FAILED,
         streamsFound,
         streamsMatched,
+        streamsFilteredByViewers,
+        streamsFilteredByLanguage,
         vodsFetched,
         completedAt: new Date(),
         errorMessage,
       },
     });
 
-    return { runId: run.id, status: DiscoveryRunStatus.FAILED, streamsFound, streamsMatched, vodsFetched, errorMessage };
+    return { runId: run.id, status: DiscoveryRunStatus.FAILED, streamsFound, streamsMatched, streamsFilteredByViewers, streamsFilteredByLanguage, vodsFetched, errorMessage };
   }
+}
+
+function normalizeLanguage(language: string) {
+  return language.trim().toLowerCase();
 }

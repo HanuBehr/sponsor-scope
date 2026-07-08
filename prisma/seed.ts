@@ -5,19 +5,29 @@ const prisma = new PrismaClient();
 const sponsorKeywords = [
   "#ad",
   "sponsored",
+  "sponsored by",
+  "sponsor",
   "sponsorship",
   "paid partnership",
   "partnered",
+  "presented by",
+  "powered by",
+  "thanks to",
   "use code",
   "creator code",
+  "promo code",
   "discount",
   "affiliate",
+  "ambassador",
   "drops",
   "giveaway",
   "play now",
-  "beta",
-  "early access",
-  "new game",
+  "join now",
+  "banner",
+  "overlay",
+  "!code",
+  "!sponsor",
+  "!partner",
 ];
 
 async function main() {
@@ -34,6 +44,9 @@ async function main() {
   const campaign = await prisma.campaign.create({
     data: {
       name: "Roblox Micro Sponsors",
+      targetChannelName: "My Twitch Channel",
+      targetAvgViewers: 120,
+      targetNiche: "Roblox",
       minViewers: 30,
       maxViewers: 500,
       languages: ["EN", "PT", "ES"],

@@ -43,8 +43,8 @@ export default async function CampaignLeadsPage({ params, searchParams }: Campai
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm text-muted-foreground">{campaign.name}</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Confirmed leads</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{unexportedLeadCount} unexported confirmed leads ready for Google Sheets.</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Outreach-ready leads</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Confirmed sponsor opportunities from peer-channel evidence. {unexportedLeadCount} unexported leads are ready for Google Sheets.</p>
         </div>
         <form action={exportUnexportedLeads}>
           <button type="submit" disabled={unexportedLeadCount === 0} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60">
@@ -71,8 +71,8 @@ export default async function CampaignLeadsPage({ params, searchParams }: Campai
 
       {leads.length === 0 ? (
         <div className="rounded-xl border bg-card p-8 text-center shadow-sm">
-          <h2 className="font-semibold">No confirmed leads yet</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Confirm sponsor signals to create leads for this campaign.</p>
+          <h2 className="font-semibold">No outreach-ready leads yet</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Confirm useful sponsor evidence from peer channels to create leads for outreach.</p>
         </div>
       ) : (
         <div className="grid gap-3">
@@ -84,7 +84,8 @@ export default async function CampaignLeadsPage({ params, searchParams }: Campai
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="font-semibold">{lead.sponsorName}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{lead.channel.displayName} · {lead.sponsorSignal.sourceTitle}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Peer Channel: {lead.channel.displayName}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Evidence/Proof Source: {lead.sponsorSignal.sourceTitle}</p>
                   <p className="mt-2 text-sm text-muted-foreground">Export: {lead.exportedAt ? `Exported to ${lead.exportedTab ?? "Google Sheets"}` : "Not exported"}</p>
                   {lead.sourceUrl ? (
                     <a href={lead.sourceUrl} className="mt-2 inline-flex text-sm font-medium text-primary" target="_blank" rel="noreferrer">

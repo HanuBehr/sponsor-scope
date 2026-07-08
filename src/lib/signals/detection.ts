@@ -40,7 +40,7 @@ export async function detectCampaignSponsorSignals(campaignId: string): Promise<
         },
       },
     },
-    select: { id: true, channelId: true, title: true },
+    select: { id: true, channelId: true, title: true, description: true },
   });
 
   const candidates: SignalCandidate[] = [
@@ -60,6 +60,16 @@ export async function detectCampaignSponsorSignals(campaignId: string): Promise<
       sourceTitle: vod.title,
       campaignKeywords: campaign.sponsorKeywords,
     })),
+    ...vods
+      .filter((vod) => Boolean(vod.description?.trim()))
+      .map((vod) => ({
+        campaignId: campaign.id,
+        channelId: vod.channelId,
+        vodId: vod.id,
+        sourceType: SponsorSignalSourceType.VOD_DESCRIPTION,
+        sourceTitle: vod.description ?? "",
+        campaignKeywords: campaign.sponsorKeywords,
+      })),
   ];
 
   let created = 0;
@@ -100,6 +110,8 @@ export async function detectCampaignSponsorSignals(campaignId: string): Promise<
         sourceTitle: candidate.sourceTitle,
         matchedText,
         matchedKeywords: score.matchedKeywords,
+        matchedSponsorTerms: score.matchedSponsorTerms,
+        matchedContextTerms: score.matchedContextTerms,
         sponsorName: score.sponsorName,
         score: score.score,
         confidence: score.confidence as SponsorConfidence,

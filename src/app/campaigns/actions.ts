@@ -19,6 +19,9 @@ export async function createCampaignAction(formData: FormData) {
   const campaign = await prisma.campaign.create({
     data: {
       name: parsed.data.name,
+      targetChannelName: parsed.data.targetChannelName || null,
+      targetAvgViewers: parsed.data.targetAvgViewers ?? null,
+      targetNiche: parsed.data.targetNiche || null,
       minViewers: parsed.data.minViewers,
       maxViewers: parsed.data.maxViewers,
       languages: parsed.data.languages,
@@ -55,6 +58,9 @@ export async function updateCampaignAction(campaignId: string, formData: FormDat
       where: { id: campaignId },
       data: {
         name: parsed.data.name,
+        targetChannelName: parsed.data.targetChannelName || null,
+        targetAvgViewers: parsed.data.targetAvgViewers ?? null,
+        targetNiche: parsed.data.targetNiche || null,
         minViewers: parsed.data.minViewers,
         maxViewers: parsed.data.maxViewers,
         languages: parsed.data.languages,

@@ -74,6 +74,13 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
           <p className="mt-2 text-muted-foreground">
             {campaign.minViewers}-{campaign.maxViewers} viewers · {campaign.languages.join(", ")}
           </p>
+          {(campaign.targetChannelName || campaign.targetNiche || campaign.targetAvgViewers) ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Researching sponsors for {campaign.targetChannelName ?? "my channel"}
+              {campaign.targetNiche ? ` in ${campaign.targetNiche}` : ""}
+              {campaign.targetAvgViewers ? ` around ${campaign.targetAvgViewers} avg viewers` : ""}.
+            </p>
+          ) : null}
         </div>
         <div className="flex gap-2">
           <form action={runDiscovery}>
@@ -130,6 +137,7 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
 
       <section className="rounded-xl border bg-card p-5 shadow-sm">
         <h2 className="font-semibold">Categories</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Peer channel discovery categories. These provide context only and do not create sponsor signals by themselves.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {campaign.categories.map((category) => (
             <span key={category.id} className="rounded-full bg-secondary px-3 py-1 text-sm">
@@ -140,7 +148,8 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
       </section>
 
       <section className="rounded-xl border bg-card p-5 shadow-sm">
-        <h2 className="font-semibold">Sponsor keywords</h2>
+        <h2 className="font-semibold">Sponsor evidence terms</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Sponsor-intent, conversion, and Twitch-surface terms used to find real sponsor evidence.</p>
         <p className="mt-3 text-sm text-muted-foreground">{campaign.sponsorKeywords.join(", ")}</p>
       </section>
 
@@ -148,7 +157,7 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="font-semibold">Latest sponsor signals</h2>
-            <p className="mt-1 text-sm text-muted-foreground">New detections are queued for manual review.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Possible sponsor evidence found on peer channels. Confirm only brands useful for outreach.</p>
           </div>
           <Link href={`/campaigns/${campaign.id}/signals`} className="text-sm font-medium text-primary">
             View all
@@ -164,7 +173,9 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
                   <div>
                     <p className="font-medium">{signal.sponsorName ?? "Unknown sponsor"}</p>
                     <p className="mt-1 text-muted-foreground">{signal.sourceTitle}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Matched: {signal.matchedText}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Proof: {signal.matchedText}</p>
+                    {signal.matchedSponsorTerms.length > 0 ? <p className="mt-1 text-xs text-muted-foreground">Sponsor terms: {signal.matchedSponsorTerms.join(", ")}</p> : null}
+                    {signal.matchedContextTerms.length > 0 ? <p className="mt-1 text-xs text-muted-foreground">Context: {signal.matchedContextTerms.join(", ")}</p> : null}
                   </div>
                   <p className="text-muted-foreground">
                     {signal.confidence} · {signal.score} · {signal.status}
@@ -218,7 +229,7 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
                   <div>
                     <p className="font-medium">{run.status}</p>
                     <p className="mt-1 text-muted-foreground">
-                      Found {run.streamsFound} · matched {run.streamsMatched} · VODs {run.vodsFetched}
+                      Fetched {run.streamsFound} · matched {run.streamsMatched} · filtered by viewers {run.streamsFilteredByViewers} · filtered by language {run.streamsFilteredByLanguage} · VODs {run.vodsFetched}
                     </p>
                   </div>
                   <p className="text-muted-foreground">{run.startedAt ? run.startedAt.toLocaleString() : "Not started"}</p>
@@ -233,7 +244,10 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
       <section className="rounded-xl border bg-card p-5 shadow-sm">
         <h2 className="font-semibold">Latest stream snapshots</h2>
         {streamSnapshots.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">No stream snapshots captured yet.</p>
+          <div className="mt-3 rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+            <p>No peer stream snapshots captured yet.</p>
+            <p className="mt-2">Try lowering minimum viewers, increasing max viewers, adding more languages, running discovery at a different time, or adding broader categories like Just Chatting.</p>
+          </div>
         ) : (
           <div className="mt-4 grid gap-3">
             {streamSnapshots.map((snapshot) => (
@@ -276,12 +290,12 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
 
       <div className="grid gap-4 md:grid-cols-2">
         <Link href={`/campaigns/${campaignId}/signals`} className="rounded-xl border bg-card p-5 shadow-sm transition hover:border-primary">
-          <h2 className="font-semibold">Sponsor signals</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Review scored stream and VOD title matches.</p>
+          <h2 className="font-semibold">Sponsor evidence</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Review proof found on peer channels.</p>
         </Link>
         <Link href={`/campaigns/${campaignId}/leads`} className="rounded-xl border bg-card p-5 shadow-sm transition hover:border-primary">
-          <h2 className="font-semibold">Confirmed leads</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Track approved sponsor opportunities.</p>
+          <h2 className="font-semibold">Outreach-ready leads</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Track confirmed sponsor opportunities for outreach.</p>
         </Link>
       </div>
     </div>

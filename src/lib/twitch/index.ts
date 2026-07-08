@@ -111,7 +111,21 @@ export async function searchTwitchCategories(query: string) {
 }
 
 export async function getStreamsByGameId(gameId: string) {
-  return twitchHelixFetch<TwitchStream>("/streams", { game_id: gameId, first: 100 });
+  const data: TwitchStream[] = [];
+  let after: string | undefined;
+  const maxPages = 5;
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const response = await twitchHelixFetch<TwitchStream>("/streams", { game_id: gameId, first: 100, after });
+    data.push(...response.data);
+    after = response.pagination?.cursor;
+
+    if (!after) {
+      break;
+    }
+  }
+
+  return { data };
 }
 
 export async function getVideosByUserId(userId: string) {

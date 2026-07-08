@@ -16,8 +16,8 @@ export default async function CampaignsPage() {
     <div className="grid gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Campaigns</h1>
-          <p className="mt-2 text-muted-foreground">Manage sponsor market research campaigns.</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Sponsor lead research campaigns</h1>
+          <p className="mt-2 text-muted-foreground">Research peer channels to find brands already sponsoring creators like you.</p>
         </div>
         <Link href="/campaigns/new" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
           New campaign
@@ -26,7 +26,7 @@ export default async function CampaignsPage() {
       {campaigns.length === 0 ? (
         <div className="rounded-xl border bg-card p-8 text-center shadow-sm">
           <h2 className="font-semibold">No campaigns yet</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Create a campaign to start researching sponsor signals.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Create a peer-channel campaign to start finding sponsor evidence for outreach.</p>
           <Link href="/campaigns/new" className="mt-4 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
             Create campaign
           </Link>
@@ -38,6 +38,7 @@ export default async function CampaignsPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="font-semibold">{campaign.name}</h2>
+                  {campaign.targetChannelName ? <p className="mt-1 text-sm text-muted-foreground">For your channel: {campaign.targetChannelName}</p> : null}
                   <p className="mt-2 text-sm text-muted-foreground">
                     {campaign.minViewers}-{campaign.maxViewers} viewers · {campaign.languages.join(", ")}
                   </p>

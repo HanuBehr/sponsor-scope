@@ -10,6 +10,7 @@ datasource db {
 enum SponsorSignalSourceType {
   STREAM_TITLE
   VOD_TITLE
+  VOD_DESCRIPTION
 }
 
 enum SponsorSignalStatus {
@@ -41,6 +42,9 @@ enum SponsorLeadStatus {
 model Campaign {
   id               String             @id @default(cuid())
   name             String
+  targetChannelName String?
+  targetAvgViewers Int?
+  targetNiche      String?
   minViewers       Int
   maxViewers       Int
   languages        String[]
@@ -101,6 +105,7 @@ model Vod {
   channelId      String
   twitchVodId    String          @unique
   title          String
+  description    String?
   publishedAt    DateTime
   duration       String?
   viewCount      Int?
@@ -118,6 +123,8 @@ model SponsorSignal {
   sourceTitle      String
   matchedText      String
   matchedKeywords  String[]                @default([])
+  matchedSponsorTerms String[]             @default([])
+  matchedContextTerms String[]             @default([])
   sponsorName      String?
   score            Int
   confidence       SponsorConfidence
@@ -165,6 +172,8 @@ model DiscoveryRun {
   status          DiscoveryRunStatus @default(PENDING)
   streamsFound    Int                @default(0)
   streamsMatched  Int                @default(0)
+  streamsFilteredByViewers Int       @default(0)
+  streamsFilteredByLanguage Int      @default(0)
   vodsFetched     Int                @default(0)
   startedAt       DateTime?
   completedAt     DateTime?

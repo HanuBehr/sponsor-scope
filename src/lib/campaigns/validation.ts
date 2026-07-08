@@ -7,6 +7,9 @@ const commaList = z
 export const campaignFormSchema = z
   .object({
     name: z.string().trim().min(1, "Name is required"),
+    targetChannelName: z.string().trim().optional(),
+    targetAvgViewers: z.preprocess((value) => (value === "" ? undefined : value), z.coerce.number().int().min(0).optional()),
+    targetNiche: z.string().trim().optional(),
     minViewers: z.coerce.number().int().min(0, "Minimum viewers must be 0 or higher"),
     maxViewers: z.coerce.number().int().min(1, "Maximum viewers must be at least 1"),
     languages: commaList.pipe(z.array(z.string().min(1)).min(1, "Add at least one language")),
@@ -56,6 +59,9 @@ export const campaignFormSchema = z
 export function parseCampaignFormData(formData: FormData) {
   return campaignFormSchema.safeParse({
     name: formData.get("name"),
+    targetChannelName: formData.get("targetChannelName"),
+    targetAvgViewers: formData.get("targetAvgViewers"),
+    targetNiche: formData.get("targetNiche"),
     minViewers: formData.get("minViewers"),
     maxViewers: formData.get("maxViewers"),
     languages: formData.get("languages"),
