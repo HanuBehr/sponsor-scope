@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { deleteCampaignAction, runDiscoveryAction } from "../actions";
+import { deleteCampaignAction, detectSignalsAction, runDiscoveryAction } from "../actions";
+import { DetectSignalsButton } from "./detect-signals-button";
 import { RunDiscoveryButton } from "./run-discovery-button";
 import { prisma } from "@/lib/prisma";
 
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 type CampaignPageProps = {
   params: Promise<{ campaignId: string }>;
-  searchParams: Promise<{ discovery?: string; message?: string; streams?: string; vods?: string }>;
+  searchParams: Promise<{ discovery?: string; signals?: string; message?: string; streams?: string; vods?: string; created?: string; scanned?: string; duplicates?: string }>;
 };
 
 export default async function CampaignPage({ params, searchParams }: CampaignPageProps) {
@@ -42,6 +43,7 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
 
   const deleteCampaign = deleteCampaignAction.bind(null, campaign.id);
   const runDiscovery = runDiscoveryAction.bind(null, campaign.id);
+  const detectSignals = detectSignalsAction.bind(null, campaign.id);
   const streamSnapshots = await prisma.streamSnapshot.findMany({
     where: { discoveryRun: { campaignId: campaign.id } },
     orderBy: { capturedAt: "desc" },
@@ -77,6 +79,9 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
           <form action={runDiscovery}>
             <RunDiscoveryButton />
           </form>
+          <form action={detectSignals}>
+            <DetectSignalsButton />
+          </form>
           <Link href={`/campaigns/${campaign.id}/edit`} className="rounded-md border px-4 py-2 text-sm font-medium">
             Edit
           </Link>
@@ -96,6 +101,16 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
 
       {discoveryState.discovery === "failed" ? (
         <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">Discovery failed: {discoveryState.message ?? "Unknown error"}</div>
+      ) : null}
+
+      {discoveryState.signals === "success" ? (
+        <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+          Signal detection completed. Created {discoveryState.created ?? "0"} signals from {discoveryState.scanned ?? "0"} records. Skipped {discoveryState.duplicates ?? "0"} duplicates.
+        </div>
+      ) : null}
+
+      {discoveryState.signals === "failed" ? (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">Signal detection failed: {discoveryState.message ?? "Unknown error"}</div>
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-3">
@@ -127,6 +142,38 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
       <section className="rounded-xl border bg-card p-5 shadow-sm">
         <h2 className="font-semibold">Sponsor keywords</h2>
         <p className="mt-3 text-sm text-muted-foreground">{campaign.sponsorKeywords.join(", ")}</p>
+      </section>
+
+      <section className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="font-semibold">Latest sponsor signals</h2>
+            <p className="mt-1 text-sm text-muted-foreground">New detections are queued for manual review.</p>
+          </div>
+          <Link href={`/campaigns/${campaign.id}/signals`} className="text-sm font-medium text-primary">
+            View all
+          </Link>
+        </div>
+        {campaign.sponsorSignals.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">No sponsor signals detected yet.</p>
+        ) : (
+          <div className="mt-4 grid gap-3">
+            {campaign.sponsorSignals.map((signal) => (
+              <div key={signal.id} className="rounded-lg border p-4 text-sm">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-medium">{signal.sponsorName ?? "Unknown sponsor"}</p>
+                    <p className="mt-1 text-muted-foreground">{signal.sourceTitle}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Matched: {signal.matchedText}</p>
+                  </div>
+                  <p className="text-muted-foreground">
+                    {signal.confidence} · {signal.score} · {signal.status}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="rounded-xl border bg-card p-5 shadow-sm">

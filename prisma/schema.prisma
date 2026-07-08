@@ -117,6 +117,7 @@ model SponsorSignal {
   sourceType       SponsorSignalSourceType
   sourceTitle      String
   matchedText      String
+  matchedKeywords  String[]                @default([])
   sponsorName      String?
   score            Int
   confidence       SponsorConfidence

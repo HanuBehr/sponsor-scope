@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatValidationError, parseCampaignFormData } from "@/lib/campaigns/validation";
+import { detectCampaignSponsorSignals } from "@/lib/signals/detection";
 import { runCampaignDiscovery } from "@/lib/twitch/discovery";
 
 export async function createCampaignAction(formData: FormData) {
@@ -87,4 +88,19 @@ export async function runDiscoveryAction(campaignId: string) {
   }
 
   redirect(`/campaigns/${campaignId}?discovery=success&streams=${result.streamsMatched}&vods=${result.vodsFetched}`);
+}
+
+export async function detectSignalsAction(campaignId: string) {
+  let result;
+
+  try {
+    result = await detectCampaignSponsorSignals(campaignId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Signal detection failed";
+    redirect(`/campaigns/${campaignId}?signals=failed&message=${encodeURIComponent(message)}`);
+  }
+
+  revalidatePath(`/campaigns/${campaignId}`);
+  revalidatePath(`/campaigns/${campaignId}/signals`);
+  redirect(`/campaigns/${campaignId}?signals=success&created=${result.created}&scanned=${result.scanned}&duplicates=${result.skippedDuplicates}`);
 }
