@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SponsorConfidence, SponsorSignalStatus } from "@prisma/client";
+import { confirmSignalAsLeadAction, rejectSignalAction } from "../../actions";
 import { prisma } from "@/lib/prisma";
 
 type CampaignSignalsPageProps = {
   params: Promise<{ campaignId: string }>;
-  searchParams: Promise<{ status?: string; confidence?: string }>;
+  searchParams: Promise<{ status?: string; confidence?: string; error?: string }>;
 };
 
 export const dynamic = "force-dynamic";
@@ -45,6 +46,8 @@ export default async function CampaignSignalsPage({ params, searchParams }: Camp
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">Sponsor signals</h1>
       </div>
 
+      {filters.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{filters.error}</div> : null}
+
       <div className="flex flex-wrap gap-2 text-sm">
         <Link href={`/campaigns/${campaign.id}/signals`} className="rounded-md border px-3 py-2">
           All
@@ -68,8 +71,12 @@ export default async function CampaignSignalsPage({ params, searchParams }: Camp
             <p className="mt-2 text-sm text-muted-foreground">Run discovery, then detect sponsor signals from stream and VOD titles.</p>
           </div>
         ) : (
-          signals.map((signal) => (
-            <div key={signal.id} className="rounded-xl border bg-card p-5 shadow-sm">
+          signals.map((signal) => {
+            const confirmSignal = confirmSignalAsLeadAction.bind(null, campaign.id, signal.id);
+            const rejectSignal = rejectSignalAction.bind(null, campaign.id, signal.id);
+
+            return (
+              <div key={signal.id} className="rounded-xl border bg-card p-5 shadow-sm">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="font-semibold">{signal.sponsorName ?? "Unknown sponsor"}</h2>
@@ -83,8 +90,33 @@ export default async function CampaignSignalsPage({ params, searchParams }: Camp
                   {signal.confidence} · {signal.score} · {signal.status}
                 </span>
               </div>
+              {signal.status !== SponsorSignalStatus.CONFIRMED ? (
+                <div className="mt-5 grid gap-3 rounded-lg border bg-muted/30 p-4">
+                  <form action={confirmSignal} className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+                    <label className="grid gap-2 text-sm font-medium">
+                      Sponsor name
+                      <input name="sponsorName" required defaultValue={signal.sponsorName ?? ""} placeholder="Enter sponsor name" className="rounded-md border bg-background px-3 py-2 font-normal" />
+                    </label>
+                    <label className="grid gap-2 text-sm font-medium">
+                      Notes
+                      <input name="notes" placeholder="Optional" className="rounded-md border bg-background px-3 py-2 font-normal" />
+                    </label>
+                    <button type="submit" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+                      Confirm as lead
+                    </button>
+                  </form>
+                  {signal.status !== SponsorSignalStatus.REJECTED ? (
+                    <form action={rejectSignal}>
+                      <button type="submit" className="rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+                        Ignore signal
+                      </button>
+                    </form>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

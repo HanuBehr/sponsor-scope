@@ -31,7 +31,7 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
       sponsorLeads: {
         orderBy: { confirmedAt: "desc" },
         take: 3,
-        include: { channel: true },
+        include: { channel: true, sponsorSignal: true },
       },
       _count: { select: { sponsorSignals: true, sponsorLeads: true, discoveryRuns: true } },
     },
@@ -169,6 +169,36 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
                   <p className="text-muted-foreground">
                     {signal.confidence} · {signal.score} · {signal.status}
                   </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="font-semibold">Latest confirmed leads</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Signals confirmed as sponsor opportunities.</p>
+          </div>
+          <Link href={`/campaigns/${campaign.id}/leads`} className="text-sm font-medium text-primary">
+            View all
+          </Link>
+        </div>
+        {campaign.sponsorLeads.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">No confirmed leads yet.</p>
+        ) : (
+          <div className="mt-4 grid gap-3">
+            {campaign.sponsorLeads.map((lead) => (
+              <div key={lead.id} className="rounded-lg border p-4 text-sm">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-medium">{lead.sponsorName}</p>
+                    <p className="mt-1 text-muted-foreground">{lead.channel.displayName} · {lead.sponsorSignal.sourceTitle}</p>
+                    {lead.notes ? <p className="mt-1 text-xs text-muted-foreground">Notes: {lead.notes}</p> : null}
+                  </div>
+                  <p className="text-muted-foreground">{lead.status}</p>
                 </div>
               </div>
             ))}
