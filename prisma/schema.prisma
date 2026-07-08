@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SponsorSignalSourceType {
+  STREAM_TITLE
+  VOD_TITLE
+}
+
+enum SponsorSignalStatus {
+  NEW
+  REVIEWED
+  CONFIRMED
+  REJECTED
+}
+
+enum SponsorConfidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum DiscoveryRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum SponsorLeadStatus {
+  CONFIRMED
+  EXPORTED
+  ARCHIVED
+}
+
+model Campaign {
+  id               String             @id @default(cuid())
+  name             String
+  minViewers       Int
+  maxViewers       Int
+  languages        String[]
+  sponsorKeywords  String[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  categories       CampaignCategory[]
+  discoveryRuns    DiscoveryRun[]
+  sponsorSignals   SponsorSignal[]
+  sponsorLeads     SponsorLead[]
+  exportLogs       ExportLog[]
+}
+
+model CampaignCategory {
+  id         String   @id @default(cuid())
+  campaignId String
+  twitchId   String
+  name       String
+  createdAt  DateTime @default(now())
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, twitchId])
+}
+
+model Channel {
+  id              String           @id @default(cuid())
+  twitchId        String           @unique
+  login           String           @unique
+  displayName     String
+  language        String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  streamSnapshots StreamSnapshot[]
+  vods            Vod[]
+  sponsorSignals  SponsorSignal[]
+  sponsorLeads    SponsorLead[]
+}
+
+model StreamSnapshot {
+  id             String          @id @default(cuid())
+  channelId      String
+  discoveryRunId String?
+  twitchStreamId String
+  title          String
+  gameName       String
+  viewerCount    Int
+  language       String
+  capturedAt     DateTime        @default(now())
+  channel        Channel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  discoveryRun   DiscoveryRun?   @relation(fields: [discoveryRunId], references: [id], onDelete: SetNull)
+  sponsorSignals SponsorSignal[]
+
+  @@index([channelId, capturedAt])
+}
+
+model Vod {
+  id             String          @id @default(cuid())
+  channelId      String
+  twitchVodId    String          @unique
+  title          String
+  publishedAt    DateTime
+  duration       String?
+  viewCount      Int?
+  channel        Channel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  sponsorSignals SponsorSignal[]
+}
+
+model SponsorSignal {
+  id               String                  @id @default(cuid())
+  campaignId       String
+  channelId        String
+  streamSnapshotId String?
+  vodId            String?
+  sourceType       SponsorSignalSourceType
+  sourceTitle      String
+  matchedText      String
+  sponsorName      String?
+  score            Int
+  confidence       SponsorConfidence
+  status           SponsorSignalStatus     @default(NEW)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  campaign         Campaign                @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  channel          Channel                 @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  streamSnapshot   StreamSnapshot?         @relation(fields: [streamSnapshotId], references: [id], onDelete: SetNull)
+  vod              Vod?                    @relation(fields: [vodId], references: [id], onDelete: SetNull)
+  sponsorLead      SponsorLead?
+
+  @@index([campaignId, status])
+  @@index([channelId])
+}
+
+model SponsorLead {
+  id              String            @id @default(cuid())
+  campaignId      String
+  channelId       String
+  sponsorSignalId String            @unique
+  sponsorName     String
+  status          SponsorLeadStatus @default(CONFIRMED)
+  notes           String?
+  confirmedAt     DateTime          @default(now())
+  campaign        Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  channel         Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  sponsorSignal   SponsorSignal     @relation(fields: [sponsorSignalId], references: [id], onDelete: Cascade)
+}
+
+model DiscoveryRun {
+  id              String             @id @default(cuid())
+  campaignId      String
+  status          DiscoveryRunStatus @default(PENDING)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  errorMessage    String?
+  createdAt       DateTime           @default(now())
+  campaign        Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  streamSnapshots StreamSnapshot[]
+}
+
+model ExportLog {
+  id          String   @id @default(cuid())
+  campaignId  String
+  destination String
+  rowCount     Int
+  createdAt   DateTime @default(now())
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
