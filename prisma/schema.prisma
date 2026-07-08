@@ -141,9 +141,17 @@ model SponsorLead {
   sponsorSignalId String            @unique
   sponsorName     String
   sourceUrl       String?
+  sponsorCategory String?
+  sponsorshipType String?
+  sponsorContact  String?
+  outreachStatus  String            @default("Not Contacted")
   status          SponsorLeadStatus @default(CONFIRMED)
   notes           String?
   confirmedAt     DateTime          @default(now())
+  exportedAt      DateTime?
+  exportedTab     String?
+  googleSheetId   String?
+  googleSheetRange String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   campaign        Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
@@ -171,6 +179,8 @@ model ExportLog {
   campaignId  String
   destination String
   rowCount     Int
+  status      String   @default("COMPLETED")
+  errorMessage String?
   createdAt   DateTime @default(now())
   campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 }

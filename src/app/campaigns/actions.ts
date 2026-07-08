@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { SponsorLeadStatus, SponsorSignalStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatValidationError, parseCampaignFormData } from "@/lib/campaigns/validation";
+import { exportCampaignLeadsToSheets } from "@/lib/sheets";
 import { detectCampaignSponsorSignals } from "@/lib/signals/detection";
 import { runCampaignDiscovery } from "@/lib/twitch/discovery";
 
@@ -170,4 +171,51 @@ export async function confirmSignalAsLeadAction(campaignId: string, signalId: st
   revalidatePath(`/campaigns/${campaignId}/signals`);
   revalidatePath(`/campaigns/${campaignId}/leads`);
   redirect(`/campaigns/${campaignId}/leads`);
+}
+
+export async function updateLeadExportFieldsAction(campaignId: string, leadId: string, formData: FormData) {
+  const sponsorCategory = getOptionalFormValue(formData, "sponsorCategory");
+  const sponsorshipType = getOptionalFormValue(formData, "sponsorshipType");
+  const sponsorContact = getOptionalFormValue(formData, "sponsorContact");
+  const outreachStatus = getOptionalFormValue(formData, "outreachStatus") ?? "Not Contacted";
+  const notes = getOptionalFormValue(formData, "notes");
+
+  await prisma.sponsorLead.update({
+    where: { id: leadId, campaignId },
+    data: {
+      sponsorCategory,
+      sponsorshipType,
+      sponsorContact,
+      outreachStatus,
+      notes,
+    },
+  });
+
+  revalidatePath(`/campaigns/${campaignId}`);
+  revalidatePath(`/campaigns/${campaignId}/leads`);
+}
+
+export async function exportUnexportedLeadsAction(campaignId: string) {
+  let result;
+
+  try {
+    result = await exportCampaignLeadsToSheets(campaignId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Google Sheets export failed";
+    redirect(`/campaigns/${campaignId}/leads?export=failed&message=${encodeURIComponent(message)}`);
+  }
+
+  revalidatePath(`/campaigns/${campaignId}`);
+  revalidatePath(`/campaigns/${campaignId}/leads`);
+
+  if (result.errors.length > 0) {
+    redirect(`/campaigns/${campaignId}/leads?export=partial&exported=${result.exportedCount}&attempted=${result.attemptedCount}&message=${encodeURIComponent(result.errors.join(" | "))}`);
+  }
+
+  redirect(`/campaigns/${campaignId}/leads?export=success&exported=${result.exportedCount}&attempted=${result.attemptedCount}`);
+}
+
+function getOptionalFormValue(formData: FormData, key: string) {
+  const value = String(formData.get(key) ?? "").trim();
+  return value || null;
 }
