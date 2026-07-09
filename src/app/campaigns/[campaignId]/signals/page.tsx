@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 type CampaignSignalsPageProps = {
   params: Promise<{ campaignId: string }>;
-  searchParams: Promise<{ status?: string; confidence?: string; sourceType?: string; error?: string }>;
+  searchParams: Promise<{ status?: string; confidence?: string; sourceType?: string; selected?: string; error?: string }>;
 };
 
 type SignalWithRelations = Awaited<ReturnType<typeof loadSignals>>[number];
@@ -31,131 +31,157 @@ export default async function CampaignSignalsPage({ params, searchParams }: Camp
 
   const signals = await loadSignals(campaign.id, status, confidence, sourceType);
   const channelGroups = groupSignalsByChannel(signals);
+  const selectedGroup = channelGroups.find((group) => group.channelId === filters.selected) ?? channelGroups[0];
 
   return (
     <div className="grid gap-6">
-      <div>
-        <p className="text-sm text-muted-foreground">{campaign.name}</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Peer channel sponsor evidence</h1>
-        <p className="mt-2 text-muted-foreground">Review each peer channel once, verify all sponsor evidence found for that channel, then confirm useful leads or reject noise.</p>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">{campaign.name}</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Sponsor evidence</h1>
+          <p className="mt-2 text-muted-foreground">Review grouped peer-channel evidence and confirm useful sponsor leads.</p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+          <span className="rounded bg-muted px-2.5 py-1">{channelGroups.length} channels</span>
+          <span className="rounded bg-muted px-2.5 py-1">{signals.length} signals</span>
+          <span className="rounded bg-primary/10 px-2.5 py-1 text-primary">{status ?? "ALL"}</span>
+        </div>
       </div>
 
-      {filters.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{filters.error}</div> : null}
+      {filters.error ? <div className="rounded bg-muted/50 p-3 text-sm text-foreground ring-1 ring-border/70">{filters.error}</div> : null}
 
-      <div className="flex flex-wrap gap-2 text-sm">
-        <Link href={`/campaigns/${campaign.id}/signals?status=ALL`} className="rounded-md border px-3 py-2">All</Link>
+      <div className="flex max-w-full gap-2 overflow-x-auto pb-1 text-sm text-muted-foreground sm:flex-wrap sm:overflow-visible">
+        <Link href={`/campaigns/${campaign.id}/signals?status=ALL`} className="shrink-0 rounded px-3 py-1.5 text-primary ring-1 ring-primary/40 hover:bg-primary/10">All</Link>
         {Object.values(SponsorSignalStatus).map((value) => (
-          <Link key={value} href={`/campaigns/${campaign.id}/signals?status=${value}`} className="rounded-md border px-3 py-2">{value}</Link>
+          <Link key={value} href={`/campaigns/${campaign.id}/signals?status=${value}`} className="shrink-0 rounded px-3 py-1.5 text-primary ring-1 ring-primary/40 hover:bg-primary/10">{value}</Link>
         ))}
         {Object.values(SponsorConfidence).map((value) => (
-          <Link key={value} href={`/campaigns/${campaign.id}/signals?confidence=${value}`} className="rounded-md border px-3 py-2">{value}</Link>
+          <Link key={value} href={`/campaigns/${campaign.id}/signals?confidence=${value}`} className="shrink-0 rounded px-3 py-1.5 text-primary ring-1 ring-primary/40 hover:bg-primary/10">{value}</Link>
         ))}
         {Object.values(SponsorSignalSourceType).map((value) => (
-          <Link key={value} href={`/campaigns/${campaign.id}/signals?sourceType=${value}`} className="rounded-md border px-3 py-2">{value}</Link>
+          <Link key={value} href={`/campaigns/${campaign.id}/signals?sourceType=${value}`} className="shrink-0 rounded px-3 py-1.5 text-primary ring-1 ring-primary/40 hover:bg-primary/10">{value}</Link>
         ))}
       </div>
 
-      <ManualEvidenceForm campaignId={campaign.id} />
-
-      <div className="grid gap-4">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_410px]">
+        <div className="min-w-0 overflow-hidden rounded-lg bg-card/60 ring-1 ring-border/70">
+          <div className="hidden border-b border-border/70 px-4 py-3 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[1fr_auto_auto]">
+            <span>Evidence</span>
+            <span className="hidden w-24 text-right sm:block">Strength</span>
+            <span className="w-20 text-right">Status</span>
+          </div>
         {channelGroups.length === 0 ? (
-          <div className="rounded-xl border bg-card p-8 text-center shadow-sm">
-            <h2 className="font-semibold">No peer channels with sponsor evidence found</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Try lowering min viewers, expanding max viewers, expanding languages, running discovery at another time, trying broader categories like Just Chatting, or manually adding evidence from Twitch panels, chat commands, YouTube descriptions, or Discord.</p>
+          <div className="px-4 py-10 text-center">
+            <h2 className="font-mono text-xs uppercase tracking-[0.16em]">No evidence in queue</h2>
+            <p className="mt-2 text-xs text-muted-foreground">Run discovery, detect signals, or add manual evidence.</p>
           </div>
         ) : (
           channelGroups.map((group) => {
             const bestSignal = group.signals[0];
-            const rejectChannel = rejectChannelNewSignalsAction.bind(null, campaign.id, group.channelId);
-            const confirmSelected = confirmSelectedSignalAsLeadAction.bind(null, campaign.id);
-            const sponsorNames = [...new Set(group.signals.map((signal) => signal.sponsorName).filter(Boolean))] as string[];
+            const selected = selectedGroup?.channelId === group.channelId;
 
             return (
-              <div key={group.channelId} className="rounded-xl border bg-card p-5 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h2 className="font-semibold">{group.peerChannelName}</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {group.login ? `@${group.login}` : "Manual peer channel"} · highest seen viewers {group.highestSeenViewers ?? "unknown"} · {group.gameCategory ?? "unknown category"}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {group.signals.length} evidence item{group.signals.length === 1 ? "" : "s"} · highest confidence {group.highestConfidence} · highest score {group.highestScore}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-3 text-sm">
-                      {group.login ? <a href={`https://www.twitch.tv/${group.login}`} target="_blank" rel="noreferrer" className="font-medium text-primary">Open Twitch</a> : null}
-                      {bestSignal.manualSourceUrl ? <a href={bestSignal.manualSourceUrl} target="_blank" rel="noreferrer" className="font-medium text-primary">Open source</a> : null}
-                    </div>
+              <Link key={group.channelId} href={buildSignalsHref(campaign.id, filters, group.channelId)} className={`grid gap-3 border-b border-border/60 px-4 py-4 last:border-b-0 hover:bg-muted/50 sm:grid-cols-[1fr_auto_auto] sm:items-start ${selected ? "bg-muted/80 shadow-[inset_3px_0_0_hsl(var(--primary))]" : ""}`}>
+                <div className="min-w-0 pr-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <h2 className="truncate font-medium">{group.peerChannelName}</h2>
+                    <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">{group.signals.length} evidence</span>
+                    {bestSignal.sponsorName ? <span className="truncate font-mono text-[11px] text-primary">{bestSignal.sponsorName}</span> : null}
                   </div>
-                  <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium">{group.highestConfidence} · {group.highestScore}</span>
+                  <p className="mt-1 break-words font-mono text-[11px] leading-5 text-muted-foreground sm:line-clamp-2">{bestSignal.matchedText}</p>
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+                    {group.login ? `@${group.login}` : "manual"} / {group.gameCategory ?? "unknown"} / seen {group.highestSeenViewers ?? "?"}
+                  </p>
                 </div>
-
-                <div className="mt-4 grid gap-2">
-                  {group.signals.map((signal) => (
-                    <div key={signal.id} className="rounded-lg border bg-background p-3 text-sm">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="font-medium">{signal.sourceType}</p>
-                          <p className="mt-1 text-muted-foreground">{signal.matchedText}</p>
-                          {signal.matchedSponsorTerms.length > 0 ? <p className="mt-1 text-xs text-muted-foreground">Sponsor terms: {dedupe(signal.matchedSponsorTerms).join(", ")}</p> : null}
-                          {signal.matchedContextTerms.length > 0 ? <p className="mt-1 text-xs text-muted-foreground">Context: {dedupe(signal.matchedContextTerms).join(", ")}</p> : null}
-                          <div className="mt-1 flex flex-wrap gap-3 text-xs">
-                            {signal.manualSourceUrl ? <a href={signal.manualSourceUrl} target="_blank" rel="noreferrer" className="font-medium text-primary">Open source</a> : null}
-                            {!signal.manualSourceUrl && signal.vod?.twitchVodId ? <a href={`https://www.twitch.tv/videos/${signal.vod.twitchVodId}`} target="_blank" rel="noreferrer" className="font-medium text-primary">Open source</a> : null}
-                          </div>
-                        </div>
-                        <span className="text-xs text-muted-foreground">{signal.confidence} · {signal.score} · {signal.status}</span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="hidden w-24 text-right font-mono text-[11px] text-muted-foreground sm:block">
+                  {group.highestConfidence}<br />{group.highestScore}
                 </div>
-
-                <div className="mt-5 grid gap-3 rounded-lg border bg-muted/30 p-4">
-                  <form action={confirmSelected} className="grid gap-3 md:grid-cols-3 md:items-end">
-                    <label className="grid gap-2 text-sm font-medium">
-                      Evidence to confirm
-                      <select name="signalId" defaultValue={bestSignal.id} className="rounded-md border bg-background px-3 py-2 font-normal">
-                        {group.signals.map((signal) => (
-                          <option key={signal.id} value={signal.id}>{signal.sourceType} · {signal.confidence} · {signal.score}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="grid gap-2 text-sm font-medium">
-                      Sponsor name
-                      <input name="sponsorName" required defaultValue={bestSignal.sponsorName ?? sponsorNames[0] ?? ""} list={`sponsors-${group.channelId}`} placeholder="Enter sponsor name" className="rounded-md border bg-background px-3 py-2 font-normal" />
-                      <datalist id={`sponsors-${group.channelId}`}>{sponsorNames.map((name) => <option key={name} value={name} />)}</datalist>
-                    </label>
-                    <label className="grid gap-2 text-sm font-medium">
-                      Sponsor category
-                      <input name="sponsorCategory" placeholder="Optional" className="rounded-md border bg-background px-3 py-2 font-normal" />
-                    </label>
-                    <label className="grid gap-2 text-sm font-medium">
-                      Sponsorship type
-                      <input name="sponsorshipType" placeholder="Dedicated Stream" className="rounded-md border bg-background px-3 py-2 font-normal" />
-                    </label>
-                    <label className="grid gap-2 text-sm font-medium">
-                      Sponsor contact
-                      <input name="sponsorContact" placeholder="Optional" className="rounded-md border bg-background px-3 py-2 font-normal" />
-                    </label>
-                    <label className="grid gap-2 text-sm font-medium">
-                      Outreach status
-                      <input name="outreachStatus" defaultValue="Not Contacted" className="rounded-md border bg-background px-3 py-2 font-normal" />
-                    </label>
-                    <label className="grid gap-2 text-sm font-medium md:col-span-2">
-                      Notes
-                      <input name="notes" placeholder="Optional" className="rounded-md border bg-background px-3 py-2 font-normal" />
-                    </label>
-                    <button type="submit" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">Confirm lead</button>
-                  </form>
-                  <form action={rejectChannel}>
-                    <button type="submit" className="rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50">Reject all NEW signals for this channel</button>
-                  </form>
-                </div>
-              </div>
+                <div className={`w-fit rounded px-2 py-1 text-xs sm:w-20 sm:text-right ${bestSignal.status === SponsorSignalStatus.REJECTED ? "bg-red-950/30 text-red-300" : "bg-primary/10 text-primary"}`}>{bestSignal.status}</div>
+              </Link>
             );
           })
         )}
+        </div>
+
+        <aside className="grid gap-5 xl:sticky xl:top-20 xl:self-start">
+          {selectedGroup ? <EvidenceDetailPanel campaignId={campaign.id} group={selectedGroup} /> : null}
+          <ManualEvidenceForm campaignId={campaign.id} />
+        </aside>
       </div>
     </div>
+  );
+}
+
+function EvidenceDetailPanel({ campaignId, group }: { campaignId: string; group: ReturnType<typeof groupSignalsByChannel>[number] }) {
+  const bestSignal = group.signals[0];
+  const rejectChannel = rejectChannelNewSignalsAction.bind(null, campaignId, group.channelId);
+  const confirmSelected = confirmSelectedSignalAsLeadAction.bind(null, campaignId);
+  const sponsorNames = [...new Set(group.signals.map((signal) => signal.sponsorName).filter(Boolean))] as string[];
+
+  return (
+    <section className="rounded-lg bg-card/60 p-4 ring-1 ring-border/70">
+      <div>
+        <p className="text-sm text-muted-foreground">Selected channel</p>
+        <h2 className="mt-1 truncate text-lg font-semibold">{group.peerChannelName}</h2>
+        <p className="mt-1 font-mono text-[11px] text-muted-foreground">{group.login ? `@${group.login}` : "manual"} / {group.highestConfidence} / {group.highestScore}</p>
+      </div>
+      <div className="mt-4 grid gap-3">
+        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+          <span className="rounded bg-muted px-2 py-1">{group.signals.length} evidence</span>
+          <span className="rounded bg-muted px-2 py-1">seen {group.highestSeenViewers ?? "?"}</span>
+          {group.gameCategory ? <span className="rounded bg-muted px-2 py-1">{group.gameCategory}</span> : null}
+        </div>
+        <div className="grid gap-2 text-sm text-primary sm:flex sm:flex-wrap">
+          {group.login ? <a href={`https://www.twitch.tv/${group.login}`} target="_blank" rel="noreferrer">Open Twitch</a> : null}
+          {bestSignal.manualSourceUrl ? <a href={bestSignal.manualSourceUrl} target="_blank" rel="noreferrer">Open Source</a> : null}
+          {!bestSignal.manualSourceUrl && bestSignal.vod?.twitchVodId ? <a href={`https://www.twitch.tv/videos/${bestSignal.vod.twitchVodId}`} target="_blank" rel="noreferrer">Open Source</a> : null}
+        </div>
+        <div className="grid gap-2 border-y border-border/60 py-3">
+          {group.signals.map((signal) => (
+            <div key={signal.id} className="rounded bg-background/60 p-3">
+              <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                <span>{signal.sourceType}</span>
+                <span>{signal.confidence} / {signal.score} / {signal.status}</span>
+              </div>
+              <p className="mt-1 break-words text-sm leading-6 text-foreground">{signal.matchedText}</p>
+              {signal.matchedSponsorTerms.length > 0 ? <p className="mt-1 font-mono text-[10px] text-muted-foreground">terms: {dedupe(signal.matchedSponsorTerms).join(", ")}</p> : null}
+              {signal.manualSourceUrl ? <a href={signal.manualSourceUrl} target="_blank" rel="noreferrer" className="mt-1 block font-mono text-[10px] text-primary">source</a> : null}
+            </div>
+          ))}
+        </div>
+        <details className="rounded bg-muted/30 p-3">
+          <summary className="cursor-pointer text-sm font-medium text-foreground">Confirm lead</summary>
+          <form action={confirmSelected} className="mt-3 grid gap-3">
+          <label className="grid gap-2 text-sm font-medium">
+            Evidence
+            <select name="signalId" defaultValue={bestSignal.id} className="rounded border bg-background px-3 py-2 font-normal">
+              {group.signals.map((signal) => (
+                <option key={signal.id} value={signal.id}>{signal.sourceType} / {signal.confidence} / {signal.score}</option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm font-medium">
+            Sponsor
+            <input name="sponsorName" required defaultValue={bestSignal.sponsorName ?? sponsorNames[0] ?? ""} list={`sponsors-${group.channelId}`} className="rounded border bg-background px-3 py-2 font-normal" />
+            <datalist id={`sponsors-${group.channelId}`}>{sponsorNames.map((name) => <option key={name} value={name} />)}</datalist>
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-2 text-sm font-medium">Category<input name="sponsorCategory" className="rounded border bg-background px-3 py-2 font-normal" /></label>
+            <label className="grid gap-2 text-sm font-medium">Type<input name="sponsorshipType" placeholder="Dedicated Stream" className="rounded border bg-background px-3 py-2 font-normal" /></label>
+            <label className="grid gap-2 text-sm font-medium">Contact<input name="sponsorContact" className="rounded border bg-background px-3 py-2 font-normal" /></label>
+            <label className="grid gap-2 text-sm font-medium">Outreach<input name="outreachStatus" defaultValue="Not Contacted" className="rounded border bg-background px-3 py-2 font-normal" /></label>
+          </div>
+          <label className="grid gap-2 text-sm font-medium">Notes<input name="notes" className="rounded border bg-background px-3 py-2 font-normal" /></label>
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <button type="submit" className="w-full rounded bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground sm:w-auto">Confirm</button>
+          </div>
+          </form>
+        </details>
+        <form action={rejectChannel}>
+          <button type="submit" className="w-full rounded px-3 py-2 text-sm text-red-300 ring-1 ring-red-900/60 hover:bg-red-950/30 sm:w-auto">Reject New</button>
+        </form>
+      </div>
+    </section>
   );
 }
 
@@ -206,6 +232,18 @@ function compareSignals(a: SignalWithRelations, b: SignalWithRelations) {
 
 function dedupe(values: string[]) {
   return [...new Set(values)];
+}
+
+function buildSignalsHref(campaignId: string, filters: { status?: string; confidence?: string; sourceType?: string }, selected: string) {
+  const params = new URLSearchParams();
+
+  if (filters.status) params.set("status", filters.status);
+  if (filters.confidence) params.set("confidence", filters.confidence);
+  if (filters.sourceType) params.set("sourceType", filters.sourceType);
+
+  params.set("selected", selected);
+
+  return `/campaigns/${campaignId}/signals?${params.toString()}`;
 }
 
 function getEnumValue<T extends Record<string, string>>(enumObject: T, value?: string) {

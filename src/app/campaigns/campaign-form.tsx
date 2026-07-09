@@ -1,4 +1,5 @@
 import type { Campaign, CampaignCategory } from "@prisma/client";
+import Link from "next/link";
 
 type CampaignWithCategories = Campaign & {
   categories: CampaignCategory[];
@@ -18,90 +19,109 @@ export function CampaignForm({ action, campaign, error, submitLabel }: CampaignF
   const gamblingPreset = "casino partner, casino sponsor, slots sponsor, betting partner, sportsbook, deposit bonus, free spins, bonus code, promo code, use code, affiliate, partner, sponsored, sponsored by, paid partnership, banner, overlay, !code, !sponsor";
 
   return (
-    <form action={action} className="grid gap-5">
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
+    <form action={action} className="grid gap-8">
+      {error ? <div className="rounded bg-muted/60 p-3 text-sm text-foreground ring-1 ring-border/70">{error}</div> : null}
 
-      <div className="rounded-lg border bg-muted/30 p-4">
-        <h2 className="font-medium">Find sponsors from channels similar to mine</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Set up peer-channel sponsor lead research for your Twitch niche.</p>
-      </div>
-
-      <label className="grid gap-2 text-sm font-medium">
-        Campaign name
-        <input name="name" required defaultValue={campaign?.name} className="rounded-md border bg-background px-3 py-2 font-normal" />
-      </label>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <label className="grid gap-2 text-sm font-medium">
-          My Twitch channel
-          <input name="targetChannelName" defaultValue={campaign?.targetChannelName ?? ""} placeholder="Your channel" className="rounded-md border bg-background px-3 py-2 font-normal" />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          My avg viewers
-          <input name="targetAvgViewers" type="number" min="0" defaultValue={campaign?.targetAvgViewers ?? ""} className="rounded-md border bg-background px-3 py-2 font-normal" />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          My niche
-          <input name="targetNiche" defaultValue={campaign?.targetNiche ?? ""} placeholder="Roblox, variety, casino" className="rounded-md border bg-background px-3 py-2 font-normal" />
-        </label>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="grid gap-2 text-sm font-medium">
-          Peer min viewers
-          <input name="minViewers" type="number" min="0" required defaultValue={campaign?.minViewers ?? 30} className="rounded-md border bg-background px-3 py-2 font-normal" />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          Peer max viewers
-          <input name="maxViewers" type="number" min="1" required defaultValue={campaign?.maxViewers ?? 500} className="rounded-md border bg-background px-3 py-2 font-normal" />
-        </label>
-      </div>
-
-      <label className="grid gap-2 text-sm font-medium">
-        Peer channel languages
-        <input name="languages" required defaultValue={campaign?.languages.join(", ") ?? "EN, PT, ES"} className="rounded-md border bg-background px-3 py-2 font-normal" />
-        <span className="text-xs font-normal text-muted-foreground">Comma-separated peer channel languages. Use fewer filters if discovery is too narrow.</span>
-      </label>
-
-      <label className="grid gap-2 text-sm font-medium">
-        Sponsor evidence terms
-        <textarea name="sponsorKeywords" required rows={4} defaultValue={campaign?.sponsorKeywords.join(", ") ?? robloxPreset} className="rounded-md border bg-background px-3 py-2 font-normal" />
-        <span className="text-xs font-normal text-muted-foreground">Use sponsor-intent, conversion, and Twitch-surface terms. Avoid content terms like tycoon, obby, simulator, robux, roleplay, or new update.</span>
-      </label>
-
-      <div className="grid gap-3 rounded-lg border bg-muted/30 p-4 text-xs text-muted-foreground">
-        <p><span className="font-medium text-foreground">Roblox preset:</span> {robloxPreset}</p>
-        <p><span className="font-medium text-foreground">General gaming preset:</span> {generalPreset}</p>
-        <p><span className="font-medium text-foreground">Gambling preset:</span> {gamblingPreset}</p>
-      </div>
-
-      <section className="grid gap-3 rounded-lg border bg-muted/30 p-4">
+      <section className="grid gap-4">
         <div>
-          <h2 className="font-medium">Peer channel discovery categories</h2>
-          <p className="text-sm text-muted-foreground">Add Twitch categories where similar channels stream. Categories help find peer channels; they are not sponsor evidence by themselves.</p>
+          <h2 className="text-base font-semibold">Peer channel target</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Define your channel context so peer research stays focused.</p>
         </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <label className="grid gap-2 text-sm font-medium">
+            Campaign name
+            <input name="name" required defaultValue={campaign?.name} className="rounded border bg-background px-3 py-2 font-normal" />
+          </label>
+          <label className="grid gap-2 text-sm font-medium">
+            Target channel
+            <input name="targetChannelName" defaultValue={campaign?.targetChannelName ?? ""} placeholder="Your Twitch channel" className="rounded border bg-background px-3 py-2 font-normal" />
+          </label>
+          <label className="grid gap-2 text-sm font-medium">
+            Avg viewers
+            <input name="targetAvgViewers" type="number" min="0" defaultValue={campaign?.targetAvgViewers ?? ""} className="rounded border bg-background px-3 py-2 font-normal" />
+          </label>
+          <label className="grid gap-2 text-sm font-medium">
+            Niche
+            <input name="targetNiche" defaultValue={campaign?.targetNiche ?? ""} placeholder="Roblox, variety, casino" className="rounded border bg-background px-3 py-2 font-normal" />
+          </label>
+        </div>
+      </section>
+
+      <section className="grid gap-4 border-t border-border/70 pt-6">
+        <div>
+          <h2 className="text-base font-semibold">Discovery filters</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Set peer viewer range, languages, and Twitch category IDs.</p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <label className="grid gap-2 text-sm font-medium">
+            Min viewers
+            <input name="minViewers" type="number" min="0" required defaultValue={campaign?.minViewers ?? 30} className="rounded border bg-background px-3 py-2 font-normal" />
+          </label>
+          <label className="grid gap-2 text-sm font-medium">
+            Max viewers
+            <input name="maxViewers" type="number" min="1" required defaultValue={campaign?.maxViewers ?? 500} className="rounded border bg-background px-3 py-2 font-normal" />
+          </label>
+          <label className="grid gap-2 text-sm font-medium">
+            Languages
+            <input name="languages" required defaultValue={campaign?.languages.join(", ") ?? "EN, PT, ES"} className="rounded border bg-background px-3 py-2 font-normal" />
+            <span className="text-xs font-normal text-muted-foreground">Comma-separated. Use fewer filters if discovery is narrow.</span>
+          </label>
+        </div>
+
+        <div className="grid gap-3">
+          <div className="text-sm text-muted-foreground">
+            Twitch IDs are category/game IDs. Examples: Roblox <span className="font-mono text-foreground">23020</span>, Just Chatting <span className="font-mono text-foreground">509658</span>, Virtual Casino <span className="font-mono text-foreground">29452</span>.
+          </div>
         {[0, 1, 2].map((rowIndex) => {
           const category = categories[rowIndex];
           const fieldIndex = rowIndex + 1;
 
           return (
-            <div key={fieldIndex} className="grid gap-3 sm:grid-cols-2">
+            <div key={fieldIndex} className="grid gap-4 lg:grid-cols-2">
               <label className="grid gap-2 text-sm font-medium">
                 Category name
-                <input name={`categoryName${fieldIndex}`} defaultValue={category?.name ?? (rowIndex === 0 ? "Roblox" : "")} className="rounded-md border bg-background px-3 py-2 font-normal" />
+                <input name={`categoryName${fieldIndex}`} defaultValue={category?.name ?? (rowIndex === 0 ? "Roblox" : "")} className="rounded border bg-background px-3 py-2 font-normal" />
               </label>
               <label className="grid gap-2 text-sm font-medium">
-                Twitch game ID
-                <input name={`twitchGameId${fieldIndex}`} defaultValue={category?.twitchId ?? (rowIndex === 0 ? "509658" : "")} className="rounded-md border bg-background px-3 py-2 font-normal" />
+                Twitch ID
+                <input name={`twitchGameId${fieldIndex}`} defaultValue={category?.twitchId ?? (rowIndex === 0 ? "23020" : "")} className="rounded border bg-background px-3 py-2 font-mono text-sm font-normal" />
               </label>
             </div>
           );
         })}
+        </div>
       </section>
 
-      <button type="submit" className="w-fit rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-        {submitLabel}
-      </button>
+      <section className="grid gap-4 border-t border-border/70 pt-6">
+        <div>
+          <h2 className="text-base font-semibold">Sponsor evidence terms</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Use sponsor-intent, conversion, and Twitch-surface terms.</p>
+        </div>
+        <label className="grid gap-2 text-sm font-medium">
+          Evidence terms
+          <textarea name="sponsorKeywords" required rows={5} defaultValue={campaign?.sponsorKeywords.join(", ") ?? robloxPreset} className="rounded border bg-background px-3 py-2 font-normal leading-6" />
+        </label>
+
+        <div className="grid gap-3 rounded bg-muted/30 p-3 text-sm text-muted-foreground lg:grid-cols-3">
+          <div>
+            <p className="font-medium text-foreground">Roblox preset</p>
+            <p className="mt-1 text-xs leading-5">{robloxPreset}</p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">General gaming preset</p>
+            <p className="mt-1 text-xs leading-5">{generalPreset}</p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Gambling preset</p>
+            <p className="mt-1 text-xs leading-5">{gamblingPreset}</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-3 border-t border-border/70 pt-6 sm:flex sm:flex-wrap sm:items-center">
+        <button type="submit" className="rounded bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">{submitLabel}</button>
+        <Link href={campaign ? `/campaigns/${campaign.id}` : "/campaigns"} className="rounded px-4 py-2 text-center text-sm text-primary ring-1 ring-primary/40 hover:bg-primary/10">Cancel</Link>
+      </section>
     </form>
   );
 }

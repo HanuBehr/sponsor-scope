@@ -25,10 +25,12 @@ export default async function EditCampaignPage({ params, searchParams }: EditCam
   const updateCampaign = updateCampaignAction.bind(null, campaign.id);
 
   return (
-    <div className="max-w-2xl rounded-xl border bg-card p-6 shadow-sm">
-      <h1 className="text-3xl font-semibold tracking-tight">Edit campaign</h1>
-      <p className="mt-2 text-muted-foreground">Update peer-channel filters, sponsor evidence terms, and discovery categories.</p>
-      <div className="mt-6">
+    <div className="grid gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Edit Research Campaign</h1>
+        <p className="mt-2 text-muted-foreground">Update peer channels, viewer range, and sponsor evidence terms.</p>
+      </div>
+      <div className="rounded-lg bg-card/70 p-4 ring-1 ring-border/70 sm:p-5">
         <CampaignForm action={updateCampaign} campaign={campaign} error={error} submitLabel="Save campaign" />
       </div>
     </div>

@@ -69,136 +69,140 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
 
   return (
     <div className="grid gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">Campaign ID: {campaign.id}</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">{campaign.name}</h1>
+      <div className="rounded-lg bg-card/70 p-5 ring-1 ring-border/70">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">{campaign.name}</h1>
           <p className="mt-2 text-muted-foreground">
-            {campaign.minViewers}-{campaign.maxViewers} viewers · {campaign.languages.join(", ")}
+            Peer range {campaign.minViewers}-{campaign.maxViewers} viewers · {campaign.languages.join(", ")}
           </p>
           {(campaign.targetChannelName || campaign.targetNiche || campaign.targetAvgViewers) ? (
-            <p className="mt-2 text-sm text-muted-foreground">
-              Researching sponsors for {campaign.targetChannelName ?? "my channel"}
-              {campaign.targetNiche ? ` in ${campaign.targetNiche}` : ""}
-              {campaign.targetAvgViewers ? ` around ${campaign.targetAvgViewers} avg viewers` : ""}.
+            <p className="mt-1 text-sm text-muted-foreground">
+              Target: {campaign.targetChannelName ?? "my channel"}{campaign.targetNiche ? ` · ${campaign.targetNiche}` : ""}{campaign.targetAvgViewers ? ` · ${campaign.targetAvgViewers} avg viewers` : ""}
             </p>
           ) : null}
         </div>
-        <div className="flex gap-2">
+        <div className="grid gap-2 sm:flex sm:flex-wrap lg:justify-end">
           <form action={runDiscovery}>
             <RunDiscoveryButton />
           </form>
           <form action={detectSignals}>
             <DetectSignalsButton />
           </form>
-          <Link href={`/campaigns/${campaign.id}/edit`} className="rounded-md border px-4 py-2 text-sm font-medium">
-            Edit
+          <Link href="#manual-evidence" className="rounded px-3 py-2 text-center text-sm text-primary ring-1 ring-primary/40 hover:bg-primary/10">
+            Add manual evidence
+          </Link>
+          <Link href={`/campaigns/${campaign.id}/signals`} className="rounded px-3 py-2 text-center text-primary ring-1 ring-primary/40 hover:bg-primary/10">
+            View signals
+          </Link>
+          <Link href={`/campaigns/${campaign.id}/leads`} className="rounded px-3 py-2 text-center text-primary ring-1 ring-primary/40 hover:bg-primary/10">
+            View leads
+          </Link>
+          <Link href={`/campaigns/${campaign.id}/edit`} className="rounded px-3 py-2 text-center text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
+            Edit campaign
           </Link>
           <form action={deleteCampaign}>
-            <button type="submit" className="rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+            <button type="submit" className="w-full rounded px-3 py-2 text-sm text-red-300 hover:bg-red-950/30 sm:w-auto">
               Delete
             </button>
           </form>
         </div>
+        </div>
       </div>
 
       {discoveryState.discovery === "success" ? (
-        <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+        <div className="rounded bg-emerald-950/20 p-3 text-sm text-emerald-300 ring-1 ring-emerald-900/50">
           Discovery completed. Matched {discoveryState.streams ?? "0"} streams and fetched {discoveryState.vods ?? "0"} VODs.
         </div>
       ) : null}
 
       {discoveryState.discovery === "failed" ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">Discovery failed: {discoveryState.message ?? "Unknown error"}</div>
+        <div className="rounded bg-muted/50 p-3 text-sm text-foreground ring-1 ring-border/70">Discovery failed: {discoveryState.message ?? "Unknown error"}</div>
       ) : null}
 
       {discoveryState.signals === "success" ? (
-        <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+        <div className="rounded bg-emerald-950/20 p-3 text-sm text-emerald-300 ring-1 ring-emerald-900/50">
           Signal detection completed. Created {discoveryState.created ?? "0"} signals from {discoveryState.scanned ?? "0"} records. Skipped {discoveryState.duplicates ?? "0"} duplicates.
         </div>
       ) : null}
 
       {discoveryState.signals === "failed" ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">Signal detection failed: {discoveryState.message ?? "Unknown error"}</div>
+        <div className="rounded bg-muted/50 p-3 text-sm text-foreground ring-1 ring-border/70">Signal detection failed: {discoveryState.message ?? "Unknown error"}</div>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
+      <section className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-lg bg-card/60 p-4 ring-1 ring-border/60">
           <p className="text-sm text-muted-foreground">Signals</p>
-          <p className="mt-2 text-2xl font-semibold">{campaign._count.sponsorSignals}</p>
+          <p className="mt-1 text-2xl font-semibold">{campaign._count.sponsorSignals}</p>
         </div>
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="rounded-lg bg-card/60 p-4 ring-1 ring-border/60">
           <p className="text-sm text-muted-foreground">Leads</p>
-          <p className="mt-2 text-2xl font-semibold">{campaign._count.sponsorLeads}</p>
+          <p className="mt-1 text-2xl font-semibold">{campaign._count.sponsorLeads}</p>
         </div>
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
-          <p className="text-sm text-muted-foreground">Runs</p>
-          <p className="mt-2 text-2xl font-semibold">{campaign._count.discoveryRuns}</p>
+        <div className="rounded-lg bg-card/60 p-4 ring-1 ring-border/60">
+          <p className="text-sm text-muted-foreground">Discovery runs</p>
+          <p className="mt-1 text-2xl font-semibold">{campaign._count.discoveryRuns}</p>
         </div>
       </section>
 
-      <section className="rounded-xl border bg-card p-5 shadow-sm">
+      <section className="rounded-lg bg-card/50 p-4 ring-1 ring-border/60">
         <h2 className="font-semibold">Categories</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Peer channel discovery categories. These provide context only and do not create sponsor signals by themselves.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {campaign.categories.map((category) => (
-            <span key={category.id} className="rounded-full bg-secondary px-3 py-1 text-sm">
+            <span key={category.id} className="rounded bg-muted px-2.5 py-1 text-xs text-muted-foreground">
               {category.name} · {category.twitchId}
             </span>
           ))}
         </div>
       </section>
 
-      <section className="rounded-xl border bg-card p-5 shadow-sm">
+      <section className="rounded-lg bg-card/50 p-4 ring-1 ring-border/60">
         <h2 className="font-semibold">Sponsor evidence terms</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Sponsor-intent, conversion, and Twitch-surface terms used to find real sponsor evidence.</p>
-        <p className="mt-3 text-sm text-muted-foreground">{campaign.sponsorKeywords.join(", ")}</p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">{campaign.sponsorKeywords.join(", ")}</p>
       </section>
 
-      <section className="rounded-xl border bg-card p-5 shadow-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      <section className="overflow-hidden rounded-lg bg-card/60 ring-1 ring-border/70">
+        <div className="flex flex-col gap-2 border-b border-border/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="font-semibold">Latest sponsor signals</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Possible sponsor evidence found on peer channels. Confirm only brands useful for outreach.</p>
+            <h2 className="font-semibold">Latest sponsor evidence</h2>
           </div>
           <Link href={`/campaigns/${campaign.id}/signals`} className="text-sm font-medium text-primary">
-            View all
+            View signals
           </Link>
         </div>
         {latestSignalGroups.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">No sponsor signals detected yet.</p>
+          <p className="px-3 py-4 text-xs text-muted-foreground">No sponsor signals detected yet.</p>
         ) : (
-          <div className="mt-4 grid gap-3">
+          <div className="divide-y divide-border">
             {latestSignalGroups.map((group) => {
               const bestSignal = group.signals[0];
 
               return (
-              <div key={group.channelId} className="rounded-lg border p-4 text-sm">
+              <div key={group.channelId} className="p-3 text-sm">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-medium">{group.peerChannelName}</p>
-                    <p className="mt-1 text-muted-foreground">{group.signals.length} evidence item{group.signals.length === 1 ? "" : "s"} · highest viewers {group.highestSeenViewers ?? "unknown"}</p>
-                    <div className="mt-1 flex flex-wrap gap-3 text-xs">
+                    <p className="mt-1 font-mono text-[11px] text-muted-foreground">x{group.signals.length} evidence / viewers {group.highestSeenViewers ?? "?"}</p>
+                    <div className="mt-1 flex flex-wrap gap-3 font-mono text-[11px]">
                       {group.login ? <a href={`https://www.twitch.tv/${group.login}`} target="_blank" rel="noreferrer" className="font-medium text-primary">Open Twitch</a> : null}
                       {bestSignal.manualSourceUrl ? <a href={bestSignal.manualSourceUrl} target="_blank" rel="noreferrer" className="font-medium text-primary">Open source</a> : null}
                       {!bestSignal.manualSourceUrl && bestSignal.vod?.twitchVodId ? <a href={`https://www.twitch.tv/videos/${bestSignal.vod.twitchVodId}`} target="_blank" rel="noreferrer" className="font-medium text-primary">Open source</a> : null}
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">Best proof: {bestSignal.matchedText}</p>
-                    {bestSignal.matchedSponsorTerms.length > 0 ? <p className="mt-1 text-xs text-muted-foreground">Sponsor terms: {[...new Set(bestSignal.matchedSponsorTerms)].join(", ")}</p> : null}
+                    <p className="mt-1 break-words font-mono text-[11px] leading-5 text-muted-foreground">{bestSignal.matchedText}</p>
                   </div>
-                  <p className="text-muted-foreground">
+                  <p className="font-mono text-[11px] text-muted-foreground">
                     {group.highestConfidence} · {group.highestScore}
                   </p>
                 </div>
                 {bestSignal.status !== "CONFIRMED" ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <form action={confirmSignalAsLeadAction.bind(null, campaign.id, bestSignal.id)} className="flex flex-wrap gap-2">
-                      <input name="sponsorName" defaultValue={bestSignal.sponsorName ?? ""} placeholder="Sponsor name" required className="rounded-md border bg-background px-3 py-2 text-sm" />
-                      <button type="submit" className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Confirm Lead</button>
+                  <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
+                    <form action={confirmSignalAsLeadAction.bind(null, campaign.id, bestSignal.id)} className="grid gap-2 sm:flex sm:flex-wrap">
+                      <input name="sponsorName" defaultValue={bestSignal.sponsorName ?? ""} placeholder="Sponsor" required className="rounded border bg-background px-3 py-2 text-sm" />
+                      <button type="submit" className="rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">Confirm</button>
                     </form>
                     {group.hasNewSignals ? (
                       <form action={rejectChannelNewSignalsAction.bind(null, campaign.id, group.channelId)}>
-                        <button type="submit" className="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">Reject NEW for channel</button>
+                        <button type="submit" className="w-full rounded px-3 py-2 text-sm text-red-300 ring-1 ring-red-900/70 hover:bg-red-950/30 sm:w-auto">Reject New</button>
                       </form>
                     ) : null}
                   </div>
@@ -212,22 +216,21 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
 
       <ManualEvidenceForm campaignId={campaign.id} />
 
-      <section className="rounded-xl border bg-card p-5 shadow-sm">
+      <section className="rounded-lg bg-card/50 p-4 ring-1 ring-border/60">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="font-semibold">Latest confirmed leads</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Signals confirmed as sponsor opportunities.</p>
+            <h2 className="font-semibold">Confirmed leads</h2>
           </div>
           <Link href={`/campaigns/${campaign.id}/leads`} className="text-sm font-medium text-primary">
-            View all
+            View leads
           </Link>
         </div>
         {campaign.sponsorLeads.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">No confirmed leads yet.</p>
         ) : (
-          <div className="mt-4 grid gap-3">
+          <div className="mt-4 divide-y divide-border/60 overflow-hidden rounded bg-background/40">
             {campaign.sponsorLeads.map((lead) => (
-              <div key={lead.id} className="rounded-lg border p-4 text-sm">
+              <div key={lead.id} className="p-3 text-sm">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-medium">{lead.sponsorName}</p>
@@ -246,47 +249,47 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
         )}
       </section>
 
-      <section className="rounded-xl border bg-card p-5 shadow-sm">
-        <h2 className="font-semibold">Latest discovery runs</h2>
+      <section className="rounded-lg bg-card/50 p-4 ring-1 ring-border/60">
+        <h2 className="font-semibold">Discovery runs</h2>
         {campaign.discoveryRuns.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">No discovery runs yet.</p>
         ) : (
-          <div className="mt-4 grid gap-3">
+          <div className="mt-3 divide-y divide-border/60 overflow-hidden rounded bg-background/40">
             {campaign.discoveryRuns.map((run) => (
-              <div key={run.id} className="rounded-lg border p-4 text-sm">
+              <div key={run.id} className="p-3 text-sm">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-medium">{run.status}</p>
-                    <p className="mt-1 text-muted-foreground">
+                    <p className="mt-1 font-mono text-[11px] text-muted-foreground">
                       Fetched {run.streamsFound} · matched {run.streamsMatched} · filtered by viewers {run.streamsFilteredByViewers} · filtered by language {run.streamsFilteredByLanguage} · VODs {run.vodsFetched}
                     </p>
                   </div>
-                  <p className="text-muted-foreground">{run.startedAt ? run.startedAt.toLocaleString() : "Not started"}</p>
+                  <p className="font-mono text-[11px] text-muted-foreground">{run.startedAt ? run.startedAt.toLocaleString() : "Not started"}</p>
                 </div>
-                {run.errorMessage ? <p className="mt-2 text-red-700">{run.errorMessage}</p> : null}
+                {run.errorMessage ? <p className="mt-2 text-muted-foreground">{run.errorMessage}</p> : null}
               </div>
             ))}
           </div>
         )}
       </section>
 
-      <section className="rounded-xl border bg-card p-5 shadow-sm">
-        <h2 className="font-semibold">Latest stream snapshots</h2>
+      <section className="rounded-lg bg-card/50 p-4 ring-1 ring-border/60">
+        <h2 className="font-semibold">Stream snapshots</h2>
         {streamSnapshots.length === 0 ? (
-          <div className="mt-3 rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+          <div className="mt-3 rounded bg-muted/30 p-3 text-sm text-muted-foreground">
             <p>No peer stream snapshots captured yet.</p>
             <p className="mt-2">Try lowering minimum viewers, increasing max viewers, adding more languages, running discovery at a different time, or adding broader categories like Just Chatting.</p>
           </div>
         ) : (
-          <div className="mt-4 grid gap-3">
+          <div className="mt-3 divide-y divide-border/60 overflow-hidden rounded bg-background/40">
             {streamSnapshots.map((snapshot) => (
-              <div key={snapshot.id} className="rounded-lg border p-4 text-sm">
+              <div key={snapshot.id} className="p-3 text-sm">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-medium">{snapshot.channel.displayName}</p>
-                    <p className="mt-1 text-muted-foreground">{snapshot.title}</p>
+                    <p className="mt-1 font-mono text-[11px] text-muted-foreground">{snapshot.title}</p>
                   </div>
-                  <p className="text-muted-foreground">
+                  <p className="font-mono text-[11px] text-muted-foreground">
                     {snapshot.viewerCount} viewers · {snapshot.language}
                   </p>
                 </div>
@@ -296,20 +299,20 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
         )}
       </section>
 
-      <section className="rounded-xl border bg-card p-5 shadow-sm">
-        <h2 className="font-semibold">Latest VODs</h2>
+      <section className="rounded-lg bg-card/50 p-4 ring-1 ring-border/60">
+        <h2 className="font-semibold">VOD metadata</h2>
         {vods.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">No recent VOD metadata fetched yet.</p>
         ) : (
-          <div className="mt-4 grid gap-3">
+          <div className="mt-3 divide-y divide-border/60 overflow-hidden rounded bg-background/40">
             {vods.map((vod) => (
-              <div key={vod.id} className="rounded-lg border p-4 text-sm">
+              <div key={vod.id} className="p-3 text-sm">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-medium">{vod.channel.displayName}</p>
-                    <p className="mt-1 text-muted-foreground">{vod.title}</p>
+                    <p className="mt-1 font-mono text-[11px] text-muted-foreground">{vod.title}</p>
                   </div>
-                  <p className="text-muted-foreground">{vod.viewCount ?? 0} views</p>
+                  <p className="font-mono text-[11px] text-muted-foreground">{vod.viewCount ?? 0} views</p>
                 </div>
               </div>
             ))}
@@ -317,14 +320,14 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
         )}
       </section>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Link href={`/campaigns/${campaignId}/signals`} className="rounded-xl border bg-card p-5 shadow-sm transition hover:border-primary">
-          <h2 className="font-semibold">Sponsor evidence</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Review proof found on peer channels.</p>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Link href={`/campaigns/${campaignId}/signals`} className="rounded-lg bg-card/50 p-4 ring-1 ring-border/60 transition hover:bg-muted/30">
+          <h2 className="font-semibold">Evidence queue</h2>
+          <p className="mt-2 text-xs text-muted-foreground">Review grouped sponsor proof.</p>
         </Link>
-        <Link href={`/campaigns/${campaignId}/leads`} className="rounded-xl border bg-card p-5 shadow-sm transition hover:border-primary">
-          <h2 className="font-semibold">Outreach-ready leads</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Track confirmed sponsor opportunities for outreach.</p>
+        <Link href={`/campaigns/${campaignId}/leads`} className="rounded-lg bg-card/50 p-4 ring-1 ring-border/60 transition hover:bg-muted/30">
+          <h2 className="font-semibold">Leads</h2>
+          <p className="mt-2 text-xs text-muted-foreground">Track confirmed sponsor records.</p>
         </Link>
       </div>
     </div>

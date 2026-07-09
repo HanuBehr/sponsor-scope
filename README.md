@@ -1,61 +1,116 @@
 # SponsorScope
 
-SponsorScope is a sponsor lead research tool for my own Twitch channel: it researches peer Twitch channels, finds sponsor evidence, turns useful mentions into outreach-ready leads, and exports confirmed leads to my Google Sheets tracker.
+SponsorScope is a sponsor lead research dashboard I built for a specific Twitch creator workflow: finding brands that are already sponsoring peer channels, reviewing the evidence, and exporting outreach-ready leads into Google Sheets.
 
-## Features
+It is intentionally scoped as a practical market research and lead intelligence tool. The app uses official APIs, deterministic scoring, and manual review instead of browser scraping or automated outreach.
 
-- Peer-channel research campaigns by Twitch category, viewer range, and language.
-- Twitch Helix discovery for live peer streams and recent VOD metadata.
-- Deterministic sponsor evidence scoring for stream titles, VOD titles, VOD descriptions, and manual evidence.
-- Channel-level sponsor evidence review so duplicate signals from the same peer channel are grouped together.
-- Manual evidence capture for Twitch panels, chat commands, YouTube descriptions, Discord posts, Twitter/X posts, Linktree/Beacons, stream overlays, and other sources.
-- Lead confirmation workflow with sponsor category, sponsorship type, contact, outreach status, and notes.
-- Append-only Google Sheets export for confirmed, unexported leads.
+## Why I Built This
+
+Small and mid-sized Twitch creators often need to research sponsorship opportunities manually: checking peer channels, looking for sponsor mentions, tracking brands, and keeping outreach lists updated. SponsorScope turns that workflow into a focused dashboard.
+
+The first use case is researching sponsors around Roblox Twitch creators, but the campaign model supports any Twitch game/category, viewer range, and language mix.
+
+## What It Does
+
+- Creates sponsor research campaigns for a target Twitch niche.
+- Uses Twitch Helix to discover live peer channels by category, language, and viewer range.
+- Fetches recent VOD metadata for discovered channels.
+- Detects sponsor evidence in stream titles, VOD titles, VOD descriptions, and manual evidence entries.
+- Groups evidence by peer channel so review is channel-level instead of duplicate-signal noise.
+- Lets an operator confirm useful signals into sponsor leads.
+- Captures manual evidence from Twitch panels, chat commands, YouTube descriptions, Discord posts, Linktree/Beacons, overlays, and other sources.
+- Exports confirmed, unexported leads to a preformatted Google Sheets tracker.
+
+## Product Workflow
+
+1. Create a research campaign.
+2. Add Twitch categories, viewer range, languages, and sponsor evidence terms.
+3. Run Twitch discovery for live peer channels.
+4. Detect sponsor evidence from stream and VOD metadata.
+5. Review grouped evidence by peer channel.
+6. Add manual evidence where needed.
+7. Confirm useful sponsor signals as leads.
+8. Export confirmed leads to Google Sheets.
+
+## Technical Highlights
+
+- Next.js 15 App Router with server actions.
+- TypeScript throughout the application.
+- Prisma data model backed by PostgreSQL/Supabase.
+- Twitch Helix API integration for live stream and VOD metadata.
+- Google Sheets API integration with append-only exports.
+- Deterministic sponsor evidence scoring with Vitest coverage.
+- Zod validation for environment/configuration boundaries.
+- Dark responsive operator UI built with TailwindCSS.
+
+## Architecture Notes
+
+The project keeps the V1 architecture deliberately direct:
+
+- Twitch API code lives in `src/lib/twitch`.
+- Google Sheets code lives in `src/lib/sheets`.
+- Sponsor scoring code lives in `src/lib/scoring`.
+- Prisma is used server-side only.
+- Review and export workflows run through Next.js server actions.
+- Scoring is deterministic and testable rather than AI-dependent.
+
+This keeps the app easy to reason about and avoids unnecessary infrastructure for the first production-shaped version.
 
 ## Tech Stack
 
 - Next.js 15 App Router
+- React
 - TypeScript
 - TailwindCSS
-- shadcn/ui-ready structure
 - Prisma
 - PostgreSQL / Supabase
-- Zod env validation
 - Twitch Helix API
 - Google Sheets API
+- Zod
 - Vitest
 
-## Local Setup
+## Google Sheets Export Contract
 
-1. Install dependencies:
+SponsorScope assumes the destination spreadsheet is already formatted for outreach tracking. It only appends rows and avoids overwriting template/header content.
+
+- Required tabs: `ROBLOX`, `General Gaming`, `Gambling`.
+- Export range starts at `B8:I`.
+- Column A is left untouched.
+- Rows 1-7 are left untouched.
+- Export uses `spreadsheets.values.append` with `USER_ENTERED` and `INSERT_ROWS`.
+- Leads route to a tab based on source game/category context.
+
+## Local Development
+
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-2. Create `.env` from `.env.example` and fill in the required values.
+Create `.env` from `.env.example`, then fill in the required values.
 
-3. Apply database migrations:
+Apply migrations:
 
 ```bash
 npm run prisma:migrate
 ```
 
-4. Seed demo data:
+Seed demo data:
 
 ```bash
 npm run db:seed
 ```
 
-5. Start the app:
+Start the dev server:
 
 ```bash
 npm run dev
 ```
 
-6. Open `http://localhost:3000`.
+Open `http://localhost:3000`.
 
-## Required Env Vars
+## Environment Variables
 
 ```env
 DATABASE_URL=""
@@ -72,117 +127,27 @@ GOOGLE_SHEETS_SPREADSHEET_ID=""
 
 - Use a PostgreSQL database URL for `DATABASE_URL`.
 - For Supabase, Prisma usually works best with the session pooler on port `5432`.
-- If the Supabase password contains special characters, URL encode the password before putting it in `DATABASE_URL`.
+- URL encode the Supabase password if it contains special characters.
 - Run `npm run prisma:migrate` after pulling schema changes.
 - Run `npm run prisma:generate` if Prisma Client types look stale.
 
-## Twitch Credentials
+## Twitch Setup
 
-1. Create a Twitch developer app in the Twitch Developer Console.
-2. Copy the app client ID into `TWITCH_CLIENT_ID`.
-3. Copy the app client secret into `TWITCH_CLIENT_SECRET`.
-4. SponsorScope uses server-side client credentials auth only.
+1. Create an app in the Twitch Developer Console.
+2. Copy the client ID into `TWITCH_CLIENT_ID`.
+3. Copy the client secret into `TWITCH_CLIENT_SECRET`.
+
+SponsorScope uses server-side client credentials auth only.
 
 ## Google Sheets Setup
 
 1. Create a Google Cloud service account.
-2. Enable the Google Sheets API for the project.
+2. Enable the Google Sheets API.
 3. Create a service account key.
 4. Put the service account email in `GOOGLE_SERVICE_ACCOUNT_EMAIL`.
 5. Put the private key in `GOOGLE_PRIVATE_KEY`.
-6. Put the target spreadsheet ID in `GOOGLE_SHEETS_SPREADSHEET_ID`.
+6. Put the spreadsheet ID in `GOOGLE_SHEETS_SPREADSHEET_ID`.
 7. Share the target Google Sheet with the service account email as Editor.
-
-## Google Sheet Requirements
-
-The target sheet is assumed to already be formatted. SponsorScope only appends values.
-
-- Required tabs: `ROBLOX`, `General Gaming`, `Gambling`.
-- Export range starts at `B8:I`.
-- Column A is left blank.
-- Rows 1-7 are never overwritten.
-- Export uses `spreadsheets.values.append` with `USER_ENTERED` and `INSERT_ROWS`.
-- Confirmed leads route to a tab by source game/category context.
-
-## Workflows
-
-### Twitch Discovery
-
-1. Create a campaign for peer-channel research.
-2. Add discovery categories such as `Roblox` or another Twitch game/category.
-3. Set peer viewer range and languages.
-4. Open the campaign detail page.
-5. Click `Run discovery`.
-6. Review discovery stats: fetched streams, matched streams, filtered viewers, filtered languages, and VODs fetched.
-
-If discovery returns nothing, lower min viewers, expand max viewers, add languages, run discovery at another time, or try broader categories like Just Chatting.
-
-### Sponsor Signal Detection
-
-1. Run discovery first.
-2. Click `Detect sponsor signals` on the campaign detail page.
-3. The app scores stream titles, VOD titles, and VOD descriptions.
-4. Context-only content terms do not create sponsor signals by themselves.
-5. Open the signals page to review grouped peer-channel evidence.
-
-### Channel-Level Review
-
-1. Open `/campaigns/[campaignId]/signals`.
-2. Review one card per peer channel.
-3. Open the Twitch channel from the card.
-4. Review all evidence items found for that peer channel.
-5. Confirm useful sponsor evidence as a lead or reject all new signals for that channel.
-
-### Manual Evidence
-
-1. Use `Add sponsor evidence manually` on the campaign detail page or signals page.
-2. Enter peer channel name or URL.
-3. Add optional seen viewers and game/category.
-4. Select the source type.
-5. Add evidence URL if available.
-6. Add required evidence text/notes.
-7. Optionally provide sponsor fields and create a confirmed lead immediately.
-
-### Lead Confirmation
-
-1. Confirm a signal from the channel-level review card.
-2. Enter or adjust sponsor name.
-3. Add sponsor category, sponsorship type, sponsor contact, outreach status, and notes where useful.
-4. Confirmed leads appear on the leads page.
-
-### Google Sheets Export
-
-1. Open `/campaigns/[campaignId]/leads`.
-2. Fill or adjust export fields on confirmed leads.
-3. Click `Export unexported leads to Google Sheets`.
-4. The app appends only unexported confirmed leads.
-5. Exported leads are marked with exported tab, sheet ID/range, and export time.
-
-## Common Issues
-
-- Google Sheet permission denied: share the Google Sheet with the service account email as Editor.
-- Supabase connection fails: URL encode the database password if it contains special characters.
-- Prisma cannot connect to Supabase: use the Supabase session pooler on port `5432` for Prisma.
-- Prisma Client generation is locked on Windows: stop the Next dev server, then run `npm run prisma:generate` again.
-- Twitch discovery finds no streams: broaden viewer/language filters or run discovery at a different time.
-
-## Windows Prisma DLL Lock
-
-On Windows, Prisma may fail with an `EPERM` rename error for `query_engine-windows.dll.node` if the Next dev server is running. Stop `npm run dev`, run `npm run prisma:generate` or `npm run prisma:migrate`, then restart `npm run dev`.
-
-## Demo Checklist
-
-- Create or open the demo campaign.
-- Confirm peer channel fields, categories, viewer range, languages, and sponsor evidence terms.
-- Run Twitch discovery.
-- Detect sponsor signals.
-- Review grouped peer-channel evidence.
-- Open a Twitch channel from a review card.
-- Add manual sponsor evidence.
-- Confirm a signal as a lead.
-- Edit lead export fields.
-- Export unexported leads to Google Sheets.
-- Verify the row appends to `ROBLOX`, `General Gaming`, or `Gambling` in `B8:I`.
 
 ## Useful Scripts
 
@@ -195,9 +160,41 @@ npm run prisma:migrate
 npm run db:seed
 ```
 
-## CV Bullet Points
+## Testing
 
-- Built SponsorScope, a Next.js/TypeScript sponsor lead research dashboard for Twitch creators using Prisma, PostgreSQL, Twitch Helix, and Google Sheets API.
-- Implemented deterministic sponsor evidence scoring that separates sponsor-intent, conversion, Twitch-surface, weak collaboration, and context-only terms to reduce noisy detections.
-- Designed a peer-channel review workflow that groups duplicate sponsor signals by Twitch channel and converts verified evidence into outreach-ready leads.
-- Added append-only Google Sheets export with tab routing, export logs, and safe write constraints that preserve preformatted outreach dashboards.
+Run scoring tests:
+
+```bash
+npm test
+```
+
+Run a production build:
+
+```bash
+npm run build
+```
+
+## Demo Checklist
+
+- Open the homepage and campaign registry.
+- Create or open a research campaign.
+- Run Twitch discovery.
+- Detect sponsor signals.
+- Review grouped peer-channel evidence.
+- Add manual evidence.
+- Confirm a sponsor signal as a lead.
+- Open the leads page.
+- Export unexported leads to Google Sheets.
+
+## What This Demonstrates
+
+- Building a full-stack workflow tool around a real creator/business use case.
+- Designing a data model for campaigns, channels, discovery runs, evidence signals, leads, and export logs.
+- Integrating third-party APIs with server-side service boundaries.
+- Using deterministic scoring to reduce noisy sponsor evidence review.
+- Creating an append-only export workflow that respects a preformatted business tracker.
+- Keeping the architecture practical and maintainable instead of overengineering V1.
+
+## Notes
+
+SponsorScope is a market research dashboard and lead intelligence tool. It does not use browser scraping, automated outreach, email enrichment, auth, payments, Redis, BullMQ, or AI-generated lead scoring in V1.

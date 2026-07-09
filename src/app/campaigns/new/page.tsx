@@ -9,10 +9,12 @@ export default async function NewCampaignPage({ searchParams }: NewCampaignPageP
   const { error } = await searchParams;
 
   return (
-    <div className="max-w-2xl rounded-xl border bg-card p-6 shadow-sm">
-      <h1 className="text-3xl font-semibold tracking-tight">New campaign</h1>
-      <p className="mt-2 text-muted-foreground">Create a peer-channel sponsor lead research campaign for your Twitch channel.</p>
-      <div className="mt-6">
+    <div className="grid gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">New Research Campaign</h1>
+        <p className="mt-2 text-muted-foreground">Configure peer channels, viewer range, and sponsor evidence terms.</p>
+      </div>
+      <div className="rounded-lg bg-card/70 p-4 ring-1 ring-border/70 sm:p-5">
         <CampaignForm action={createCampaignAction} error={error} submitLabel="Create campaign" />
       </div>
     </div>

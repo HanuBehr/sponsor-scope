@@ -52,7 +52,7 @@ async function main() {
       languages: ["EN", "PT", "ES"],
       sponsorKeywords,
       categories: {
-        create: [{ twitchId: "509658", name: "Roblox" }],
+        create: [{ twitchId: "23020", name: "Roblox" }],
       },
     },
   });

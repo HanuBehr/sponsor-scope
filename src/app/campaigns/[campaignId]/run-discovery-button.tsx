@@ -6,8 +6,8 @@ export function RunDiscoveryButton() {
   const { pending } = useFormStatus();
 
   return (
-    <button type="submit" disabled={pending} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60">
-      {pending ? "Running discovery..." : "Run discovery"}
+    <button type="submit" disabled={pending} className="w-full rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">
+      {pending ? "Running discovery" : "Run discovery"}
     </button>
   );
 }

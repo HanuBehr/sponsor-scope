@@ -4,22 +4,22 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 252 80% 58%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 252 80% 58%;
-    --radius: 0.75rem;
+    --background: 150 32% 3%;
+    --foreground: 132 28% 93%;
+    --card: 150 26% 6%;
+    --card-foreground: 132 28% 93%;
+    --primary: 134 100% 54%;
+    --primary-foreground: 150 45% 4%;
+    --secondary: 152 25% 12%;
+    --secondary-foreground: 132 35% 82%;
+    --muted: 150 22% 10%;
+    --muted-foreground: 133 13% 58%;
+    --accent: 155 35% 15%;
+    --accent-foreground: 132 40% 88%;
+    --border: 145 24% 19%;
+    --input: 150 24% 14%;
+    --ring: 134 100% 54%;
+    --radius: 0.25rem;
   }
 
   * {
@@ -27,6 +27,26 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-sm text-foreground antialiased;
+    font-feature-settings: "ss01" on, "cv01" on;
+  }
+
+  body::selection {
+    background: hsl(var(--primary) / 0.25);
+    color: hsl(var(--foreground));
+  }
+
+  input,
+  textarea,
+  select {
+    @apply border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring;
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    @apply transition-colors;
   }
 }
