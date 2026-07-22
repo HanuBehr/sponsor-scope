@@ -2,44 +2,46 @@
 
 [![CI](https://github.com/HanuBehr/SponsorScope/actions/workflows/ci.yml/badge.svg)](https://github.com/HanuBehr/SponsorScope/actions/workflows/ci.yml)
 
-Streaming for free? SponsorScope tracks which brands are already paying similar creators and keeps the evidence attached.
+SponsorScope finds brands already sponsoring similar Twitch creators and keeps the evidence attached.
 
-It discovers peer Twitch channels, detects visible sponsorship signals, groups the evidence by creator and turns confirmed findings into outreach-ready leads.
+It discovers peer channels, detects sponsorship signals in stream and VOD metadata, groups repeated evidence by creator and exports confirmed leads to Google Sheets.
 
 ![SponsorScope sponsor research workspace](docs/assets/sponsorscope-macos-readme-window.png)
 
 ## Why I built it
 
-Finding potential sponsors is not mainly a contact-search problem. The difficult part is proving that a brand already spends money on creators in the same niche.
+Finding random brands is easy. Finding brands already spending money on creators in the same niche is much more useful.
 
-I built SponsorScope for my own Twitch sponsorship research workflow. Instead of collecting random company names, it starts with similar creators, finds visible sponsorship evidence and preserves the source throughout review and export.
-
-The system uses official APIs, deterministic scoring and human review rather than browser scraping, AI-generated lead scores or automated outreach.
+I built SponsorScope for my own sponsor research workflow, using official APIs, deterministic scoring and manual review instead of treating every keyword match as a real sponsorship.
 
 ## How it works
 
-1. Create a research campaign around a Twitch category, language and viewer range.
-2. Discover peer channels and recent stream or VOD metadata through Twitch Helix.
-3. Detect sponsorship signals in titles, descriptions and manually submitted evidence.
-4. Group repeated signals by creator so the review queue does not become duplicate noise.
-5. Review the evidence and confirm useful findings as sponsor leads.
-6. Export new leads to the correct tab in an existing Google Sheets outreach tracker.
-
-Manual evidence can also be attached from Twitch panels, chat commands, YouTube descriptions, Discord posts, social profiles, overlays and other public sources.
-
-## What makes it different
-
-SponsorScope is evidence-first.
-
-A keyword match is not treated as a confirmed sponsorship. The app keeps the channel, source, proof link, matched terms, confidence and review status connected so the operator can decide whether the signal is actually useful.
-
-Google Sheets exports are append-only and preserve the existing outreach template instead of rebuilding or overwriting it.
+- Discover peer Twitch channels by category, language and viewer range.
+- Detect sponsor signals in stream titles, VOD titles and descriptions.
+- Add evidence manually from panels, social posts, chat commands and other public sources.
+- Group evidence by creator to avoid duplicate review cards.
+- Confirm useful findings and export them to Google Sheets.
 
 ## Built with
 
-**Application:** Next.js, React, TypeScript and Tailwind CSS  
-**Data:** PostgreSQL, Supabase, Prisma and Zod  
-**Integrations:** Twitch Helix API and Google Sheets API  
-**Testing:** Vitest and deterministic evidence-scoring rules
+Next.js, React, TypeScript, Tailwind CSS, PostgreSQL, Prisma, Twitch Helix, Google Sheets API, Zod and Vitest.
 
-There is no public deployment because live discovery and export require private Twitch and Google credentials. The repository includes seeded demo data so the campaign, review and lead workflow can still be inspected locally.
+## Run locally
+
+Clone the repository or use **Code → Download ZIP** on GitHub.
+
+```bash
+git clone https://github.com/HanuBehr/SponsorScope.git
+cd SponsorScope
+npm install
+```
+
+Copy `.env.example` to `.env`, add the required Twitch and Google credentials, then run:
+
+```bash
+npm run prisma:migrate
+npm run db:seed
+npm run dev
+```
+
+Open `http://localhost:3000`.
