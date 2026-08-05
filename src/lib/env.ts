@@ -1,7 +1,9 @@
 import { z } from "zod";
 
+export const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true" || process.env.DEMO_MODE === "true";
+
 const envSchema = z.object({
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: isDemoMode ? z.string().url().optional() : z.string().url(),
 });
 
 const twitchEnvSchema = z.object({

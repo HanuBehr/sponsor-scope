@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { SponsorLeadStatus } from "@prisma/client";
 import { exportUnexportedLeadsAction, updateLeadExportFieldsAction } from "../../actions";
 import { prisma } from "@/lib/prisma";
+import { demoExportLogs, getDemoCampaign, getDemoLeads } from "@/lib/demo";
 
 type CampaignLeadsPageProps = {
   params: Promise<{ campaignId: string }>;
@@ -13,7 +14,8 @@ export const dynamic = "force-dynamic";
 export default async function CampaignLeadsPage({ params, searchParams }: CampaignLeadsPageProps) {
   const { campaignId } = await params;
   const exportState = await searchParams;
-  const campaign = await prisma.campaign.findUnique({
+  const demoCampaign = getDemoCampaign(campaignId);
+  const campaign = demoCampaign ? { id: demoCampaign.id, name: demoCampaign.name } : await prisma.campaign.findUnique({
     where: { id: campaignId },
     select: { id: true, name: true },
   });
@@ -22,14 +24,14 @@ export default async function CampaignLeadsPage({ params, searchParams }: Campai
     notFound();
   }
 
-  const leads = await prisma.sponsorLead.findMany({
+  const leads = getDemoLeads(campaign.id) ?? (await prisma.sponsorLead.findMany({
     where: { campaignId: campaign.id },
     orderBy: { confirmedAt: "desc" },
     include: {
       channel: true,
       sponsorSignal: { include: { streamSnapshot: true, vod: true } },
     },
-  });
+  }));
   const sortedLeads = leads.sort((a, b) => {
     const exportScore = Number(!b.exportedAt) - Number(!a.exportedAt);
     if (exportScore !== 0) return exportScore;
@@ -39,7 +41,7 @@ export default async function CampaignLeadsPage({ params, searchParams }: Campai
     if (completenessScore !== 0) return completenessScore;
     return (b.sponsorSignal.streamSnapshot?.viewerCount ?? b.sponsorSignal.manualSeenViewers ?? 0) - (a.sponsorSignal.streamSnapshot?.viewerCount ?? a.sponsorSignal.manualSeenViewers ?? 0);
   });
-  const exportLogs = await prisma.exportLog.findMany({
+  const exportLogs = demoCampaign ? demoExportLogs : await prisma.exportLog.findMany({
     where: { campaignId: campaign.id },
     orderBy: { createdAt: "desc" },
     take: 5,

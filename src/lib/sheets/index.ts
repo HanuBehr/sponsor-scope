@@ -84,9 +84,41 @@ export async function exportCampaignLeadsToSheets(campaignId: string) {
   for (const [tabName, tabLeads] of groupedLeads.entries()) {
     const rows = tabLeads.map((lead) => formatSponsorLeadExportRow(lead, latestViewerCounts.get(lead.channelId)));
     const destination = `Google Sheets:${tabName}`;
+    const exportBatchKey = createExportBatchKey(campaignId, tabName, tabLeads.map((lead) => lead.id));
+    let appendCompleted = false;
 
     try {
+      const unfinishedBatch = await prisma.sponsorLead.findFirst({
+        where: {
+          id: { in: tabLeads.map((lead) => lead.id) },
+          exportBatchKey: { not: null },
+          exportedAt: null,
+        },
+        select: { exportBatchKey: true },
+      });
+
+      if (unfinishedBatch?.exportBatchKey) {
+        throw new Error(`Previous export batch ${unfinishedBatch.exportBatchKey} is unfinished; reconcile the sheet before retrying`);
+      }
+
+      await prisma.$transaction([
+        prisma.sponsorLead.updateMany({
+          where: { id: { in: tabLeads.map((lead) => lead.id) }, exportedAt: null },
+          data: { exportBatchKey },
+        }),
+        prisma.exportLog.create({
+          data: {
+            campaignId,
+            destination,
+            rowCount: tabLeads.length,
+            status: "PENDING",
+            exportBatchKey,
+          },
+        }),
+      ]);
+
       const appendResult = await appendLeadRowsToSheet(tabName, rows);
+      appendCompleted = true;
       const exportedAt = new Date();
 
       await prisma.sponsorLead.updateMany({
@@ -97,15 +129,16 @@ export async function exportCampaignLeadsToSheets(campaignId: string) {
           exportedTab: tabName,
           googleSheetId: appendResult.spreadsheetId,
           googleSheetRange: appendResult.range,
+          exportBatchKey,
         },
       });
 
-      await prisma.exportLog.create({
+      await prisma.exportLog.updateMany({
+        where: { campaignId, exportBatchKey },
         data: {
-          campaignId,
-          destination,
-          rowCount: tabLeads.length,
           status: "COMPLETED",
+          rowCount: tabLeads.length,
+          errorMessage: null,
         },
       });
 
@@ -113,16 +146,26 @@ export async function exportCampaignLeadsToSheets(campaignId: string) {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Google Sheets append failed";
       errors.push(`${tabName}: ${errorMessage}`);
+      const mustPreserveClaim = appendCompleted || errorMessage.startsWith("Previous export batch ");
 
-      await prisma.exportLog.create({
-        data: {
-          campaignId,
-          destination,
-          rowCount: 0,
-          status: "FAILED",
-          errorMessage,
-        },
-      });
+      await prisma.$transaction([
+        ...(mustPreserveClaim ? [] : [
+          prisma.sponsorLead.updateMany({
+            where: { id: { in: tabLeads.map((lead) => lead.id) }, exportedAt: null, exportBatchKey },
+            data: { exportBatchKey: null },
+          }),
+        ]),
+        prisma.exportLog.create({
+          data: {
+            campaignId,
+            destination,
+            rowCount: 0,
+            status: "FAILED",
+            errorMessage,
+            exportBatchKey,
+          },
+        }),
+      ]);
     }
   }
 
@@ -156,19 +199,34 @@ async function loadUnexportedLeads(campaignId: string) {
 
 async function getLatestViewerCounts(campaignId: string, channelIds: string[]) {
   const counts = new Map<string, number>();
+  const uniqueChannelIds = [...new Set(channelIds)];
 
-  for (const channelId of [...new Set(channelIds)]) {
-    const latestSnapshot = await prisma.streamSnapshot.findFirst({
-      where: {
-        channelId,
-        discoveryRun: { campaignId },
-      },
-      orderBy: { capturedAt: "desc" },
-      select: { viewerCount: true },
-    });
+  if (uniqueChannelIds.length === 0) {
+    return counts;
+  }
 
-    if (latestSnapshot) {
-      counts.set(channelId, latestSnapshot.viewerCount);
+  const snapshots = await prisma.streamSnapshot.findMany({
+    where: {
+      channelId: { in: uniqueChannelIds },
+      discoveryRun: { campaignId },
+    },
+    orderBy: { capturedAt: "desc" },
+    select: { channelId: true, viewerCount: true },
+  });
+
+  return latestViewerCountsFromSnapshots(snapshots);
+}
+
+export function createExportBatchKey(campaignId: string, tabName: SheetTabName, leadIds: string[]) {
+  return [campaignId, tabName, ...[...leadIds].sort()].join(":");
+}
+
+export function latestViewerCountsFromSnapshots(snapshots: Array<{ channelId: string; viewerCount: number }>) {
+  const counts = new Map<string, number>();
+
+  for (const snapshot of snapshots) {
+    if (!counts.has(snapshot.channelId)) {
+      counts.set(snapshot.channelId, snapshot.viewerCount);
     }
   }
 

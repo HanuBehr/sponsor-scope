@@ -106,6 +106,7 @@ model StreamSnapshot {
   sponsorSignals SponsorSignal[]
 
   @@index([channelId, capturedAt])
+  @@unique([discoveryRunId, twitchStreamId])
 }
 
 model Vod {
@@ -137,6 +138,7 @@ model SponsorSignal {
   matchedKeywords  String[]                @default([])
   matchedSponsorTerms String[]             @default([])
   matchedContextTerms String[]             @default([])
+  sourceKey        String?
   sponsorName      String?
   score            Int
   confidence       SponsorConfidence
@@ -151,6 +153,7 @@ model SponsorSignal {
 
   @@index([campaignId, status])
   @@index([channelId])
+  @@unique([campaignId, sourceType, sourceKey])
 }
 
 model SponsorLead {
@@ -171,6 +174,7 @@ model SponsorLead {
   exportedTab     String?
   googleSheetId   String?
   googleSheetRange String?
+  exportBatchKey  String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   campaign        Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
@@ -202,6 +206,9 @@ model ExportLog {
   rowCount     Int
   status      String   @default("COMPLETED")
   errorMessage String?
+  exportBatchKey String?
   createdAt   DateTime @default(now())
   campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, exportBatchKey])
 }

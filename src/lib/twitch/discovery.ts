@@ -82,8 +82,21 @@ export async function runCampaignDiscovery(campaignId: string): Promise<Discover
           },
         });
 
-        await prisma.streamSnapshot.create({
-          data: {
+        await prisma.streamSnapshot.upsert({
+          where: {
+            discoveryRunId_twitchStreamId: {
+              discoveryRunId: run.id,
+              twitchStreamId: stream.id,
+            },
+          },
+          update: {
+            channelId: channel.id,
+            title: stream.title,
+            gameName: stream.game_name,
+            viewerCount: stream.viewer_count,
+            language: stream.language.toUpperCase(),
+          },
+          create: {
             channelId: channel.id,
             discoveryRunId: run.id,
             twitchStreamId: stream.id,

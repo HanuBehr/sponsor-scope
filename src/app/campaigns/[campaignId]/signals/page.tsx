@@ -4,6 +4,7 @@ import { SponsorConfidence, SponsorSignalSourceType, SponsorSignalStatus } from 
 import { ManualEvidenceForm } from "../manual-evidence-form";
 import { confirmSelectedSignalAsLeadAction, rejectChannelNewSignalsAction } from "../../actions";
 import { prisma } from "@/lib/prisma";
+import { getDemoCampaign, getDemoSignals } from "@/lib/demo";
 
 type CampaignSignalsPageProps = {
   params: Promise<{ campaignId: string }>;
@@ -20,7 +21,8 @@ export default async function CampaignSignalsPage({ params, searchParams }: Camp
   const status = filters.status === "ALL" ? undefined : getEnumValue(SponsorSignalStatus, filters.status) ?? SponsorSignalStatus.NEW;
   const confidence = getEnumValue(SponsorConfidence, filters.confidence);
   const sourceType = getEnumValue(SponsorSignalSourceType, filters.sourceType);
-  const campaign = await prisma.campaign.findUnique({
+  const demoCampaign = getDemoCampaign(campaignId);
+  const campaign = demoCampaign ? { id: demoCampaign.id, name: demoCampaign.name } : await prisma.campaign.findUnique({
     where: { id: campaignId },
     select: { id: true, name: true },
   });
@@ -29,7 +31,7 @@ export default async function CampaignSignalsPage({ params, searchParams }: Camp
     notFound();
   }
 
-  const signals = await loadSignals(campaign.id, status, confidence, sourceType);
+  const signals = getDemoSignals(campaign.id) ?? (await loadSignals(campaign.id, status, confidence, sourceType));
   const channelGroups = groupSignalsByChannel(signals);
   const selectedGroup = channelGroups.find((group) => group.channelId === filters.selected) ?? channelGroups[0];
 

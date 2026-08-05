@@ -83,12 +83,12 @@ export async function detectCampaignSponsorSignals(campaignId: string): Promise<
     }
 
     const matchedText = buildMatchedText(candidate.sourceTitle);
+    const sourceKey = buildSignalSourceKey(candidate);
     const existingSignal = await prisma.sponsorSignal.findFirst({
       where: {
         campaignId: candidate.campaignId,
-        channelId: candidate.channelId,
-        sourceTitle: candidate.sourceTitle,
-        matchedText,
+        sourceType: candidate.sourceType,
+        sourceKey,
       },
       select: { id: true },
     });
@@ -110,6 +110,7 @@ export async function detectCampaignSponsorSignals(campaignId: string): Promise<
         matchedKeywords: score.matchedKeywords,
         matchedSponsorTerms: score.matchedSponsorTerms,
         matchedContextTerms: score.matchedContextTerms,
+        sourceKey,
         sponsorName: score.sponsorName,
         score: score.score,
         confidence: score.confidence as SponsorConfidence,
@@ -125,4 +126,13 @@ export async function detectCampaignSponsorSignals(campaignId: string): Promise<
 
 function buildMatchedText(sourceTitle: string) {
   return sourceTitle.slice(0, 500);
+}
+
+export function buildSignalSourceKey(candidate: Pick<SignalCandidate, "streamSnapshotId" | "vodId" | "sourceType" | "sourceTitle" | "channelId">) {
+  const sourceId = candidate.streamSnapshotId ?? candidate.vodId ?? candidate.channelId;
+  return `${candidate.sourceType}:${sourceId}:${normalizeSourceTitle(candidate.sourceTitle)}`.slice(0, 500);
+}
+
+function normalizeSourceTitle(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
 }

@@ -9,8 +9,13 @@ import { exportCampaignLeadsToSheets } from "@/lib/sheets";
 import { scoreSponsorSignal } from "@/lib/scoring";
 import { detectCampaignSponsorSignals } from "@/lib/signals/detection";
 import { runCampaignDiscovery } from "@/lib/twitch/discovery";
+import { isDemoMode } from "@/lib/env";
 
 export async function createCampaignAction(formData: FormData) {
+  if (isDemoMode) {
+    redirect("/campaigns/demo-campaign?demo=readonly");
+  }
+
   const parsed = parseCampaignFormData(formData);
 
   if (!parsed.success) {
@@ -38,6 +43,10 @@ export async function createCampaignAction(formData: FormData) {
 }
 
 export async function updateCampaignAction(campaignId: string, formData: FormData) {
+  if (isDemoMode) {
+    redirect(`/campaigns/${campaignId}?demo=readonly`);
+  }
+
   const parsed = parseCampaignFormData(formData);
 
   if (!parsed.success) {
@@ -79,6 +88,10 @@ export async function updateCampaignAction(campaignId: string, formData: FormDat
 }
 
 export async function deleteCampaignAction(campaignId: string) {
+  if (isDemoMode) {
+    redirect(`/campaigns/${campaignId}?demo=readonly`);
+  }
+
   await prisma.campaign.delete({
     where: { id: campaignId },
   });
@@ -88,6 +101,10 @@ export async function deleteCampaignAction(campaignId: string) {
 }
 
 export async function runDiscoveryAction(campaignId: string) {
+  if (isDemoMode) {
+    redirect(`/campaigns/${campaignId}?discovery=success&streams=9&vods=18&demo=readonly`);
+  }
+
   const result = await runCampaignDiscovery(campaignId);
 
   revalidatePath(`/campaigns/${campaignId}`);
@@ -100,6 +117,10 @@ export async function runDiscoveryAction(campaignId: string) {
 }
 
 export async function detectSignalsAction(campaignId: string) {
+  if (isDemoMode) {
+    redirect(`/campaigns/${campaignId}?signals=success&created=1&scanned=3&duplicates=0&demo=readonly`);
+  }
+
   let result;
 
   try {
@@ -115,6 +136,11 @@ export async function detectSignalsAction(campaignId: string) {
 }
 
 export async function rejectSignalAction(campaignId: string, signalId: string) {
+  if (isDemoMode) {
+    revalidatePath(`/campaigns/${campaignId}/signals`);
+    return;
+  }
+
   await prisma.sponsorSignal.update({
     where: { id: signalId, campaignId },
     data: { status: SponsorSignalStatus.REJECTED },
@@ -125,6 +151,11 @@ export async function rejectSignalAction(campaignId: string, signalId: string) {
 }
 
 export async function rejectChannelNewSignalsAction(campaignId: string, channelId: string) {
+  if (isDemoMode) {
+    revalidatePath(`/campaigns/${campaignId}/signals`);
+    return;
+  }
+
   await prisma.sponsorSignal.updateMany({
     where: {
       campaignId,
@@ -139,6 +170,10 @@ export async function rejectChannelNewSignalsAction(campaignId: string, channelI
 }
 
 export async function confirmSelectedSignalAsLeadAction(campaignId: string, formData: FormData) {
+  if (isDemoMode) {
+    redirect(`/campaigns/${campaignId}/signals?error=${encodeURIComponent("Demo mode is read-only")}`);
+  }
+
   const signalId = String(formData.get("signalId") ?? "").trim();
 
   if (!signalId) {
@@ -149,6 +184,11 @@ export async function confirmSelectedSignalAsLeadAction(campaignId: string, form
 }
 
 export async function confirmSignalAsLeadAction(campaignId: string, signalId: string, formData: FormData) {
+  if (isDemoMode) {
+    revalidatePath(`/campaigns/${campaignId}`);
+    return;
+  }
+
   const sponsorName = String(formData.get("sponsorName") ?? "").trim();
   const sponsorCategory = getOptionalFormValue(formData, "sponsorCategory");
   const sponsorshipType = getOptionalFormValue(formData, "sponsorshipType");
@@ -216,6 +256,10 @@ export async function confirmSignalAsLeadAction(campaignId: string, signalId: st
 }
 
 export async function addManualEvidenceAction(campaignId: string, formData: FormData) {
+  if (isDemoMode) {
+    redirect(`/campaigns/${campaignId}/signals?error=${encodeURIComponent("Demo mode is read-only")}`);
+  }
+
   const peerChannelInput = String(formData.get("peerChannel") ?? "").trim();
   const seenViewersValue = String(formData.get("seenViewers") ?? "").trim();
   const gameCategory = getOptionalFormValue(formData, "gameCategory");
@@ -252,11 +296,16 @@ export async function addManualEvidenceAction(campaignId: string, formData: Form
   });
   const score = scoreSponsorSignal(evidenceText, campaign.sponsorKeywords);
   const confidence = score.confidence ?? SponsorConfidence.LOW;
-  const signal = await prisma.sponsorSignal.create({
-    data: {
-      campaignId,
-      channelId: channel.id,
-      sourceType,
+  const sourceKey = buildManualSignalSourceKey(campaignId, manualLogin, sourceType, evidenceUrl, evidenceText);
+  const signal = await prisma.sponsorSignal.upsert({
+    where: {
+      campaignId_sourceType_sourceKey: {
+        campaignId,
+        sourceType,
+        sourceKey,
+      },
+    },
+    update: {
       sourceTitle: evidenceText,
       manualSourceUrl: evidenceUrl,
       manualPeerChannel: peerChannelInput || displayName,
@@ -271,11 +320,39 @@ export async function addManualEvidenceAction(campaignId: string, formData: Form
       confidence,
       status: createLead && sponsorName ? SponsorSignalStatus.CONFIRMED : SponsorSignalStatus.NEW,
     },
+    create: {
+      campaignId,
+      channelId: channel.id,
+      sourceType,
+      sourceTitle: evidenceText,
+      manualSourceUrl: evidenceUrl,
+      manualPeerChannel: peerChannelInput || displayName,
+      manualSeenViewers: seenViewersValue ? Number(seenViewersValue) : null,
+      manualGameCategory: gameCategory,
+      matchedText: buildManualMatchedText(evidenceText),
+      matchedKeywords: score.matchedKeywords,
+      matchedSponsorTerms: score.matchedSponsorTerms,
+      matchedContextTerms: score.matchedContextTerms,
+      sourceKey,
+      sponsorName: sponsorName ?? score.sponsorName,
+      score: score.hasSignal ? score.score : 20,
+      confidence,
+      status: createLead && sponsorName ? SponsorSignalStatus.CONFIRMED : SponsorSignalStatus.NEW,
+    },
   });
 
   if (createLead && sponsorName) {
-    await prisma.sponsorLead.create({
-      data: {
+    await prisma.sponsorLead.upsert({
+      where: { sponsorSignalId: signal.id },
+      update: {
+        sponsorName,
+        sourceUrl: evidenceUrl,
+        sponsorCategory,
+        sponsorshipType,
+        sponsorContact,
+        status: SponsorLeadStatus.CONFIRMED,
+      },
+      create: {
         campaignId,
         channelId: channel.id,
         sponsorSignalId: signal.id,
@@ -295,6 +372,11 @@ export async function addManualEvidenceAction(campaignId: string, formData: Form
 }
 
 export async function updateLeadExportFieldsAction(campaignId: string, leadId: string, formData: FormData) {
+  if (isDemoMode) {
+    revalidatePath(`/campaigns/${campaignId}/leads`);
+    return;
+  }
+
   const sponsorCategory = getOptionalFormValue(formData, "sponsorCategory");
   const sponsorshipType = getOptionalFormValue(formData, "sponsorshipType");
   const sponsorContact = getOptionalFormValue(formData, "sponsorContact");
@@ -317,6 +399,10 @@ export async function updateLeadExportFieldsAction(campaignId: string, leadId: s
 }
 
 export async function exportUnexportedLeadsAction(campaignId: string) {
+  if (isDemoMode) {
+    redirect(`/campaigns/${campaignId}/leads?export=failed&message=${encodeURIComponent("Demo mode does not write to Google Sheets")}`);
+  }
+
   let result;
 
   try {
@@ -378,4 +464,9 @@ function twitchChannelUrl(login: string) {
 
 function buildManualMatchedText(evidenceText: string) {
   return evidenceText.slice(0, 500);
+}
+
+function buildManualSignalSourceKey(campaignId: string, login: string, sourceType: SponsorSignalSourceType, evidenceUrl: string | null, evidenceText: string) {
+  const normalizedEvidence = evidenceText.trim().replace(/\s+/g, " ").toLowerCase();
+  return [`manual`, campaignId, login, sourceType, evidenceUrl ?? "no-url", normalizedEvidence].join(":").slice(0, 500);
 }

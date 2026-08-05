@@ -1,16 +1,17 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getDemoCampaigns } from "@/lib/demo";
 
 export const dynamic = "force-dynamic";
 
 export default async function CampaignsPage() {
-  const campaigns = await prisma.campaign.findMany({
+  const campaigns = getDemoCampaigns() ?? (await prisma.campaign.findMany({
     orderBy: { updatedAt: "desc" },
     include: {
       categories: { orderBy: { createdAt: "asc" } },
       _count: { select: { sponsorSignals: true, sponsorLeads: true } },
     },
-  });
+  }));
 
   return (
     <div className="grid gap-6">

@@ -5,18 +5,20 @@ import { DetectSignalsButton } from "./detect-signals-button";
 import { ManualEvidenceForm } from "./manual-evidence-form";
 import { RunDiscoveryButton } from "./run-discovery-button";
 import { prisma } from "@/lib/prisma";
+import { demoStreamSnapshots, demoVods, getDemoCampaign } from "@/lib/demo";
 
 export const dynamic = "force-dynamic";
 
 type CampaignPageProps = {
   params: Promise<{ campaignId: string }>;
-  searchParams: Promise<{ discovery?: string; signals?: string; message?: string; streams?: string; vods?: string; created?: string; scanned?: string; duplicates?: string }>;
+  searchParams: Promise<{ discovery?: string; signals?: string; message?: string; streams?: string; vods?: string; created?: string; scanned?: string; duplicates?: string; demo?: string }>;
 };
 
 export default async function CampaignPage({ params, searchParams }: CampaignPageProps) {
   const { campaignId } = await params;
   const discoveryState = await searchParams;
-  const campaign = await prisma.campaign.findUnique({
+  const demoCampaign = getDemoCampaign(campaignId);
+  const campaign = demoCampaign ?? (await prisma.campaign.findUnique({
     where: { id: campaignId },
     include: {
       categories: { orderBy: { createdAt: "asc" } },
@@ -36,7 +38,7 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
       },
       _count: { select: { sponsorSignals: true, sponsorLeads: true, discoveryRuns: true } },
     },
-  });
+  }));
 
   if (!campaign) {
     notFound();
@@ -46,13 +48,13 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
   const runDiscovery = runDiscoveryAction.bind(null, campaign.id);
   const detectSignals = detectSignalsAction.bind(null, campaign.id);
   const latestSignalGroups = groupSignalsByChannel(campaign.sponsorSignals).slice(0, 3);
-  const streamSnapshots = await prisma.streamSnapshot.findMany({
+  const streamSnapshots = demoCampaign ? demoStreamSnapshots : await prisma.streamSnapshot.findMany({
     where: { discoveryRun: { campaignId: campaign.id } },
     orderBy: { capturedAt: "desc" },
     take: 10,
     include: { channel: true, discoveryRun: true },
   });
-  const vods = await prisma.vod.findMany({
+  const vods = demoCampaign ? demoVods : await prisma.vod.findMany({
     where: {
       channel: {
         streamSnapshots: {
@@ -114,6 +116,10 @@ export default async function CampaignPage({ params, searchParams }: CampaignPag
         <div className="rounded bg-emerald-950/20 p-3 text-sm text-emerald-300 ring-1 ring-emerald-900/50">
           Discovery completed. Matched {discoveryState.streams ?? "0"} streams and fetched {discoveryState.vods ?? "0"} VODs.
         </div>
+      ) : null}
+
+      {discoveryState.demo === "readonly" ? (
+        <div className="rounded bg-muted/50 p-3 text-sm text-foreground ring-1 ring-border/70">Demo mode uses fictional read-only fixture data and does not call Twitch, Google Sheets, or the database.</div>
       ) : null}
 
       {discoveryState.discovery === "failed" ? (

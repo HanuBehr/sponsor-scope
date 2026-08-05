@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { env } from "@/lib/env";
+import { env, isDemoMode } from "@/lib/env";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -10,7 +10,7 @@ export const prisma =
   new PrismaClient({
     datasources: {
       db: {
-        url: env.DATABASE_URL,
+        url: env.DATABASE_URL ?? (isDemoMode ? "postgresql://demo:demo@localhost:5432/sponsorscope_demo" : undefined),
       },
     },
   });
